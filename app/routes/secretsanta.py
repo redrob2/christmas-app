@@ -2,8 +2,6 @@ from flask import Blueprint, render_template, redirect, url_for, flash, current_
 from flask_login import login_required, current_user
 from datetime import datetime
 import random
-import json
-import os
 from app import db, mail
 from app.models import (ChristmasEvent, EventParticipant, SecretSantaAssignment,
                        ExclusionPair, User, WishList, SantaMessage)
@@ -280,50 +278,11 @@ def generate_secret_santa(event_id):
     event.assignments_generated = True
     db.session.commit()
 
-    # Save to file for backup
-    save_assignments_to_file(event, assignments)
     from app.admin_tools import log_activity
     log_activity('names_drawn', f'{len(assignments)} people', event=event)
 
     flash(f'Secret Santa assignments generated for {len(assignments)} participants!', 'success')
     return redirect(url_for('secretsanta.manage_secret_santa', event_id=event_id, step='draw'))
-
-
-def save_assignments_to_file(event, assignments):
-    """Save assignments to JSON file for backup"""
-    try:
-        file_path = current_app.config.get('ASSIGNMENTS_FILE_PATH', '/app/data/assignments')
-        os.makedirs(file_path, exist_ok=True)
-
-        filename = f"{event.year}_{event.name.replace(' ', '_')}_{event.id}.json"
-        full_path = os.path.join(file_path, filename)
-
-        # Get user names for the file
-        data = {
-            'event_id': event.id,
-            'event_name': event.name,
-            'year': event.year,
-            'generated_at': datetime.utcnow().isoformat(),
-            'assignments': []
-        }
-
-        for giver_id, receiver_id in assignments:
-            giver = db.session.get(User, giver_id)
-            receiver = db.session.get(User, receiver_id)
-            data['assignments'].append({
-                'giver_id': giver_id,
-                'giver_name': giver.name,
-                'giver_email': giver.email,
-                'receiver_id': receiver_id,
-                'receiver_name': receiver.name,
-                'receiver_email': receiver.email
-            })
-
-        with open(full_path, 'w') as f:
-            json.dump(data, f, indent=2)
-
-    except Exception as e:
-        print(f"Error saving assignments to file: {e}")
 
 
 @secretsanta_bp.route('/event/<int:event_id>/send', methods=['POST'])

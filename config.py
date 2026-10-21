@@ -28,6 +28,15 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or None
     DATA_PATH = DATA_PATH
 
+    # Behind a reverse proxy (Nginx Proxy Manager, SWAG, Cloudflare...)? Then trust its
+    # X-Forwarded-For / -Proto headers for the visitor's address and https. Leave off
+    # when people connect directly: anyone could fake those headers.
+    TRUST_PROXY = (os.environ.get('TRUST_PROXY') or 'false').lower() in ('1', 'true', 'yes')
+
+    # SQLite journal: "wal" is faster but needs a real disk path (e.g. /mnt/cache/appdata);
+    # the default "delete" is safe on Unraid's /mnt/user shares too
+    SQLITE_JOURNAL_MODE = (os.environ.get('SQLITE_JOURNAL_MODE') or 'delete').lower()
+
     # Public address, for links in emails and notifications
     SERVER_NAME_FOR_EMAILS = _HOST
     PREFERRED_URL_SCHEME = _SCHEME
@@ -59,8 +68,6 @@ class Config:
     SESSION_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_HTTPONLY = True
 
-    # Secret Santa assignments file path
-    ASSIGNMENTS_FILE_PATH = os.environ.get('ASSIGNMENTS_FILE_PATH') or f'{DATA_PATH}/assignments'
 
     # File upload configuration
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER') or f'{DATA_PATH}/uploads'

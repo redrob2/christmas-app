@@ -31,6 +31,9 @@ def create_app(config_name='default'):
 
     app.config.from_object(config[config_name])
     prepare_storage(app)
+    if app.config.get('TRUST_PROXY'):
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
     # Ensure upload directories exist
     upload_folder = app.config.get('UPLOAD_FOLDER', '/app/data/uploads')
@@ -67,6 +70,8 @@ def create_app(config_name='default'):
     register_cli(app)
     from app.link_preview import register_cli as register_link_cli
     register_link_cli(app)
+    from app.copy_db import register_cli as register_copy_cli
+    register_copy_cli(app)
 
     # Cache-busting: static links carry the file's timestamp (?v=...), so browsers
     # load the new CSS/JS straight after an update instead of a stale cached copy
@@ -251,6 +256,9 @@ def prepare_storage(app):
             os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         # wait up to 30s for a lock instead of failing ("database is locked")
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'connect_args': {'timeout': 30}}
+        global _sqlite_journal_mode
+        mode = app.config.get('SQLITE_JOURNAL_MODE', 'delete')
+        _sqlite_journal_mode = mode if mode in ('wal', 'delete', 'truncate') else 'delete'
 
     if not app.config.get('SECRET_KEY'):
         os.makedirs(data_path, exist_ok=True)
@@ -267,12 +275,15 @@ def prepare_storage(app):
             app.config['SECRET_KEY'] = f.read().strip()
 
 
+_sqlite_journal_mode = 'delete'
+
+
 @event.listens_for(Engine, 'connect')
 def _sqlite_pragmas(dbapi_connection, connection_record):
-    """SQLite: write-ahead log (readers don't block the writer), enforce foreign keys"""
+    """SQLite: journal mode (see SQLITE_JOURNAL_MODE), enforce foreign keys, wait for locks"""
     if isinstance(dbapi_connection, sqlite3.Connection):
         cursor = dbapi_connection.cursor()
-        cursor.execute('PRAGMA journal_mode=WAL')
+        cursor.execute(f'PRAGMA journal_mode={_sqlite_journal_mode.upper()}')
         cursor.execute('PRAGMA foreign_keys=ON')
         cursor.execute('PRAGMA busy_timeout=30000')
         cursor.close()

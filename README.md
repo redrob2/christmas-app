@@ -34,6 +34,7 @@ self-hosted in one Docker container, made for Unraid.
 4. Create an event, add your family, and share the link.
 
 Everything is stored in the appdata folder (`/mnt/user/appdata/familychristmas`): the database, photos and generated keys. Back it up with the **Appdata Backup** plugin.
+For the database, a pool path like `/mnt/cache/appdata/familychristmas` (or an *exclusive* appdata share) is best.
 
 ## Other Docker hosts
 
@@ -49,6 +50,7 @@ docker compose logs wishlist     # shows the setup code on first start
 | Variable | What it does | Default |
 |---|---|---|
 | `PUBLIC_URL` | Address people use, e.g. `https://wishlist.example.com`. Used for links in emails and notifications. | `http://localhost:8123` |
+| `TRUST_PROXY` | `true` when people come in through a reverse proxy, so sign-in limits see each visitor's real address. Leave `false` for direct connections: the proxy header can be faked. | `false` |
 | `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USE_TLS` | Outgoing email server | `smtp.gmail.com`, `587`, `true` |
 | `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_DEFAULT_SENDER` | Email login and From address | — |
 | `GEMINI_API_KEY` | Optional AI features | — |
@@ -56,6 +58,7 @@ docker compose logs wishlist     # shows the setup code on first start
 | `TZ` | Time zone (Unraid sets it automatically) | `UTC` |
 | `DATABASE_URL` | Use PostgreSQL instead of the built-in SQLite file: `postgresql://user:password@host:5432/dbname` | SQLite in `/app/data` |
 | `PUID`, `PGID` | Owner of the files in appdata | `99`, `100` |
+| `SQLITE_JOURNAL_MODE` | `delete` is safe anywhere. `wal` is faster but needs a real disk path such as `/mnt/cache/appdata/...` (not `/mnt/user/...`). | `delete` |
 | `SECRET_KEY` | Signs sign-in cookies. Generated automatically and kept in appdata if you don't set it. | generated |
 
 Everything else is set in the app itself: **Admin → Settings**. That covers the site name, sign-ups and the family question, and reminders.
@@ -79,8 +82,31 @@ automatically when the new version starts. Installed phone apps offer a
 
 ## Moving from the docker compose (PostgreSQL) setup
 
-Point `DATABASE_URL` at your existing PostgreSQL database and map your old data folder
-(photos) to `/app/data`. Everything carries over: people, passwords, lists, Secret Santa and notification sign-ups.
+Everything carries over: people, passwords, lists, purchases, Secret Santa, messages,
+notification sign-ups, and the photos. Back up first:
+
+```bash
+docker compose exec backup sh /backup.sh once
+```
+
+**Option A: keep using the PostgreSQL database.** Stop the old app with `docker compose stop web scheduler`.
+Give the new container `DATABASE_URL=postgresql://USER:PASSWORD@christmas-db:5432/DBNAME`, put it on the old
+compose network, and map the old data folder (with `uploads/`) to `/app/data`.
+
+**Option B: copy into the built-in SQLite file.**
+1. Stop the old app: `docker compose stop web scheduler`. Keep `db` running.
+2. Copy the data, using the new image once, on the old network:
+
+   ```bash
+   docker run --rm --network christmas-app_christmas-network      -v /mnt/user/appdata/familychristmas:/app/data      ghcr.io/redrob2/christmas-app-unraid:latest      flask --app run:app copy-database --source postgresql://USER:PASSWORD@christmas-db:5432/DBNAME
+   ```
+3. Copy the photos: `cp -a /mnt/user/appdata/christmas-app-data/uploads /mnt/user/appdata/familychristmas/`
+4. Start the new container on the same port.
+
+The old database is only read, never changed, so going back is `docker compose start web scheduler`.
+
+In both options, set `SECRET_KEY` to the old `.env` value so nobody has to sign in again.
+The copy command checks every table's row count, and `tests/migration/` tests it against PostgreSQL on every change.
 
 ## Security notes
 

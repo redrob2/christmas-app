@@ -1,0 +1,37 @@
+# Tests copy-database against a real PostgreSQL (the old docker compose setup's
+# database) in both directions: PostgreSQL -> SQLite and SQLite -> PostgreSQL.
+name: Test database copy
+
+on:
+  push:
+    branches: [main]
+    paths: ['app/**', 'tests/**', 'requirements.txt', '.github/workflows/test-migration.yml']
+  workflow_dispatch:
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: christmas
+          POSTGRES_PASSWORD: christmas
+          POSTGRES_DB: family
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U christmas" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Create a second empty database
+        run: PGPASSWORD=christmas psql -h localhost -U christmas -d family -c 'CREATE DATABASE target'
+      - name: PostgreSQL -> SQLite
+        run: python tests/migration/copy_test.py . . postgresql://christmas:christmas@localhost:5432/family
+      - name: SQLite -> PostgreSQL
+        env:
+          TARGET_DATABASE_URL: postgresql://christmas:christmas@localhost:5432/target
+        run: python tests/migration/copy_test.py . .

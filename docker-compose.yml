@@ -22,6 +22,8 @@ services:
       # Address people use to reach it (for links in emails and notifications;
       # phones can only install the app and get notifications over https)
       - PUBLIC_URL=https://wishlist.example.com
+      # true when people come in through a reverse proxy (it then trusts X-Forwarded-For)
+      - TRUST_PROXY=false
       # Email (optional, but needed for invites, reminders and password resets)
       - MAIL_SERVER=smtp.gmail.com
       - MAIL_PORT=587

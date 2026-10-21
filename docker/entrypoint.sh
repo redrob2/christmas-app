@@ -1,5 +1,6 @@
 #!/bin/sh
 # Starts the whole app in one container:
+#   (with arguments, steps 3-4 are replaced by running that command once)
 #   1. as root: create the data folders and hand them to PUID:PGID (Unraid: 99:100)
 #   2. as that user: prepare the database once (tables, upgrades, keys, setup code)
 #   3. the daily reminder scheduler in the background (restarted if it ever stops)
@@ -12,7 +13,7 @@ export DATA_PATH
 if [ "$(id -u)" = "0" ]; then
     PUID="${PUID:-99}"
     PGID="${PGID:-100}"
-    mkdir -p "$DATA_PATH/uploads/profiles" "$DATA_PATH/uploads/items" "$DATA_PATH/assignments"
+    mkdir -p "$DATA_PATH/uploads/profiles" "$DATA_PATH/uploads/items"
     # Only touch files that need it (fast even with thousands of photos)
     find "$DATA_PATH" \( ! -user "$PUID" -o ! -group "$PGID" \) -exec chown "$PUID:$PGID" {} + 2>/dev/null || true
     exec setpriv --reuid="$PUID" --regid="$PGID" --clear-groups "$0" "$@"
@@ -23,6 +24,12 @@ cd /app
 
 echo "[start] preparing the database..."
 python -c "from run import app" || { echo "[start] could not prepare the database - see the error above"; exit 1; }
+
+# A one-off command instead of the app, e.g.
+#   docker run --rm ... IMAGE flask --app run:app copy-database --source postgresql://...
+if [ "$#" -gt 0 ]; then
+    exec "$@"
+fi
 
 if [ "${RUN_SCHEDULER:-true}" = "true" ]; then
     (

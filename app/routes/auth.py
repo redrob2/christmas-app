@@ -85,8 +85,8 @@ def change_password():
             flash('Current password is incorrect.', 'danger')
             return render_template('auth/change_password.html')
 
-        if len(new_password) < 6:
-            flash('New password must be at least 6 characters.', 'danger')
+        if len(new_password) < 8:
+            flash('New password must be at least 8 characters.', 'danger')
             return render_template('auth/change_password.html')
 
         if new_password != confirm_password:
@@ -161,8 +161,8 @@ def reset_password(token):
         new_password = request.form.get('new_password', '')
         confirm_password = request.form.get('confirm_password', '')
 
-        if len(new_password) < 6:
-            flash('Password must be at least 6 characters.', 'danger')
+        if len(new_password) < 8:
+            flash('Password must be at least 8 characters.', 'danger')
             return render_template('auth/reset_password.html', token=token)
 
         if new_password != confirm_password:
@@ -190,8 +190,9 @@ MAX_PENDING = 25
 
 
 def _client_ip():
-    forwarded = request.headers.get('X-Forwarded-For', '')
-    return (forwarded.split(',')[0].strip() or request.remote_addr or '?')[:64]
+    """The visitor's address. With TRUST_PROXY on, ProxyFix has already set this from the
+    proxy's X-Forwarded-For; otherwise that header is ignored, since anyone can send it."""
+    return (request.remote_addr or '?')[:64]
 
 
 def _too_many_signups():
