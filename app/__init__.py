@@ -5,8 +5,11 @@ from flask_mail import Mail
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
 from config import config
-from sqlalchemy import text
+from sqlalchemy import event, text
+from sqlalchemy.engine import Engine
 import os
+import secrets
+import sqlite3
 import time
 
 db = SQLAlchemy()
@@ -27,6 +30,7 @@ def create_app(config_name='default'):
                 static_folder=os.path.join(basedir, 'static'))
 
     app.config.from_object(config[config_name])
+    prepare_storage(app)
 
     # Ensure upload directories exist
     upload_folder = app.config.get('UPLOAD_FOLDER', '/app/data/uploads')
@@ -136,6 +140,20 @@ def create_app(config_name='default'):
         return f"${value:,.2f}".replace('.00', '')
 
     @app.before_request
+    def first_run_setup():
+        """Until an admin account exists, every page leads to the setup page"""
+        from flask import redirect, request, url_for
+        if app.config.get('HAS_ADMIN') or request.endpoint in (
+                None, 'static', 'healthz', 'auth.setup', 'pwa.service_worker', 'pwa.manifest',
+                'pwa.offline', 'pwa.app_version'):
+            return None
+        from app.models import User
+        if User.query.filter_by(is_admin=True).first() is not None:
+            app.config['HAS_ADMIN'] = True
+            return None
+        return redirect(url_for('auth.setup'))
+
+    @app.before_request
     def record_last_seen():
         """Remember when each person last used the app (for "Online now" on the admin pages)"""
         from flask import request
@@ -192,27 +210,24 @@ def create_app(config_name='default'):
         wait_for_database()
         db.create_all()
         add_missing_columns()
-        # Create the default admin only on a brand-new install (no admins at all).
-        # Checking by email would recreate admin@christmas.app / admin123 on every
-        # restart once the real admin changed their email address.
         from app.models import User, AppSettings
-        admin = User.query.filter_by(is_admin=True).first()
-        if not admin:
-            admin = User(
-                email='admin@christmas.app',
-                name='Administrator',
-                is_admin=True,
-                must_change_password=True
-            )
-            admin.set_password('admin123')
-            db.session.add(admin)
-            db.session.commit()
-
         # Create default app settings if not exists
         settings = AppSettings.query.first()
         if not settings:
             settings = AppSettings(site_name='Family Christmas')
             db.session.add(settings)
+            db.session.commit()
+
+        # No built-in admin account: until one is created on the first-run page,
+        # that page asks for a one-time setup code shown in the container log
+        if User.query.filter_by(is_admin=True).first() is None:
+            if not settings.setup_code:
+                settings.setup_code = '-'.join(secrets.token_hex(2).upper() for _ in range(3))
+                db.session.commit()
+            print('\n' + '=' * 64 + '\n  First run: open the web page and create the admin account.\n'
+                  f'  Setup code: {settings.setup_code}\n' + '=' * 64 + '\n', flush=True)
+        elif settings.setup_code:
+            settings.setup_code = None
             db.session.commit()
 
         from app.push import ensure_vapid_keys
@@ -224,6 +239,43 @@ def create_app(config_name='default'):
         db.engine.dispose()
 
     return app
+
+
+def prepare_storage(app):
+    """Database engine settings, data folders and a generated secret key"""
+    uri = app.config['SQLALCHEMY_DATABASE_URI']
+    data_path = app.config.get('DATA_PATH') or '/app/data'
+    if uri.startswith('sqlite'):
+        path = uri.split(':///', 1)[-1]
+        if path and path != ':memory:':
+            os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        # wait up to 30s for a lock instead of failing ("database is locked")
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'connect_args': {'timeout': 30}}
+
+    if not app.config.get('SECRET_KEY'):
+        os.makedirs(data_path, exist_ok=True)
+        key_file = os.path.join(data_path, 'secret_key')
+        if not os.path.exists(key_file):
+            with open(key_file, 'w') as f:
+                f.write(secrets.token_hex(32))
+            try:
+                os.chmod(key_file, 0o600)
+            except OSError:
+                pass
+            print(f'[setup] generated a secret key in {key_file}', flush=True)
+        with open(key_file) as f:
+            app.config['SECRET_KEY'] = f.read().strip()
+
+
+@event.listens_for(Engine, 'connect')
+def _sqlite_pragmas(dbapi_connection, connection_record):
+    """SQLite: write-ahead log (readers don't block the writer), enforce foreign keys"""
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute('PRAGMA journal_mode=WAL')
+        cursor.execute('PRAGMA foreign_keys=ON')
+        cursor.execute('PRAGMA busy_timeout=30000')
+        cursor.close()
 
 
 def add_missing_columns():

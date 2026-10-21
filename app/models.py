@@ -399,6 +399,8 @@ class AppSettings(db.Model):
     # "Request an account" link on the sign-in page (requests wait for an admin)
     allow_signups = db.Column(db.Boolean, default=True, nullable=False)
     # Optional "family question": a correct answer lets a new account skip approval
+    # One-time code that protects the first-run "create the admin account" page
+    setup_code = db.Column(db.String(20))
     signup_question_enabled = db.Column(db.Boolean, default=False, nullable=False)
     signup_question = db.Column(db.String(200))
     signup_answers = db.Column(db.String(300))  # accepted answers, comma-separated
@@ -483,3 +485,13 @@ class ActivityLog(db.Model):
     event_id = db.Column(db.Integer)
     action = db.Column(db.String(40), nullable=False)
     detail = db.Column(db.String(300))
+
+
+class LoginFailure(db.Model):
+    """Recent wrong-password attempts, for slowing down password guessing"""
+    __tablename__ = 'login_failures'
+
+    id = db.Column(db.Integer, primary_key=True)
+    ip = db.Column(db.String(64), index=True)
+    email = db.Column(db.String(120), index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)

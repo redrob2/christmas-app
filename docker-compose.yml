@@ -1,142 +1,44 @@
-# Secrets and per-install settings live in .env next to this file (see .env.example).
+# One container: web app + daily reminders, data in a SQLite file.
 #
-# All persistent data lives in Unraid appdata (outside docker.img):
-#   DB_DIR    PostgreSQL data files         (default /mnt/user/appdata/christmas-app-db)
-#   DATA_DIR  uploads + Secret Santa files  (default /mnt/user/appdata/christmas-app-data)
-#   BACKUP_DIR nightly dumps               (default ./backups)
-# Never delete or edit files in DB_DIR while the database container is running.
-
-x-logging: &default-logging
-  # Cap container logs so they can't fill Unraid's docker.img
-  driver: json-file
-  options:
-    max-size: "10m"
-    max-file: "3"
+#   docker compose up -d
+#
+# Then open http://YOUR-SERVER-IP:8123 and create the admin account with the
+# setup code from:  docker compose logs wishlist
+#
+# On Unraid you'd normally install it from Community Apps instead; this file is
+# for other Docker hosts (or building it yourself).
 
 services:
-  web:
-    build: .
-    # One image shared by web + scheduler. pull_policy "build" rebuilds it on every
-    # "compose up" (fast, layers are cached) so a stale image from an older version
-    # can never be reused by mistake.
-    image: christmas-app:local
-    pull_policy: build
-    container_name: christmas-app
+  wishlist:
+    image: ghcr.io/redrob2/christmas-app-unraid:latest
+    # build: .        # uncomment to build from this folder instead
+    container_name: wishlist
     ports:
-      - "${APP_PORT:-8123}:8123"
-    environment: &app-env
-      - FLASK_ENV=production
-      - TZ=${TZ:-UTC}
-      - SECRET_KEY=${SECRET_KEY:?Set SECRET_KEY in .env}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-christmas}:${POSTGRES_PASSWORD:-christmas}@db:5432/${POSTGRES_DB:-christmas_app}
-      - SERVER_NAME_FOR_EMAILS=${SERVER_NAME_FOR_EMAILS:-wishlist.example.com}
-      - PREFERRED_URL_SCHEME=https
-      - MAIL_SERVER=${MAIL_SERVER:-smtp.gmail.com}
-      - MAIL_PORT=${MAIL_PORT:-587}
-      - MAIL_USE_TLS=${MAIL_USE_TLS:-true}
-      - MAIL_USERNAME=${MAIL_USERNAME:-}
-      - MAIL_PASSWORD=${MAIL_PASSWORD:-}
-      - MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - GEMINI_IMAGE_MODEL=${GEMINI_IMAGE_MODEL:-}
-      - GEMINI_IMAGE_FALLBACK_MODEL=${GEMINI_IMAGE_FALLBACK_MODEL:-}
-      - GEMINI_TEXT_MODEL=${GEMINI_TEXT_MODEL:-}
-      # Push notifications work without these (keys are generated and kept in the database)
-      - VAPID_SUBJECT=${VAPID_SUBJECT:-}
-      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
-      - ASSIGNMENTS_FILE_PATH=/app/data/assignments
-      - UPLOAD_FOLDER=/app/data/uploads
-    volumes:
-      - ${DATA_DIR:-/mnt/user/appdata/christmas-app-data}:/app/data
-      # read-only: lets Admin -> Settings show when the last backup ran
-      - ${BACKUP_DIR:-./backups}:/app/backups:ro
-    # Defined here (not only in the Dockerfile) so it applies whatever image is running
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8123/healthz', timeout=5).status == 200 else 1)"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-    # Let in-flight requests finish before the container is killed
-    stop_grace_period: 45s
-    logging: *default-logging
-    networks:
-      - christmas-network
-
-  # Sends reminder emails once a day (see app/reminders.py)
-  scheduler:
-    image: christmas-app:local   # built by the web service
-    pull_policy: never
-    container_name: christmas-scheduler
-    command: ["flask", "--app", "run:app", "reminder-scheduler", "--hour", "${REMINDER_HOUR:-9}"]
-    environment: *app-env
-    volumes:
-      - ${DATA_DIR:-/mnt/user/appdata/christmas-app-data}:/app/data
-    depends_on:
-      # wait for web so only one container creates the tables on a fresh install
-      web:
-        condition: service_healthy
-    healthcheck:
-      disable: true
-    restart: unless-stopped
-    logging: *default-logging
-    networks:
-      - christmas-network
-
-  db:
-    image: postgres:15-alpine
-    container_name: christmas-db
+      - "8123:8123"
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-christmas}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-christmas}
-      - POSTGRES_DB=${POSTGRES_DB:-christmas_app}
+      - TZ=America/New_York
+      - PUID=99
+      - PGID=100
+      # Address people use to reach it (for links in emails and notifications;
+      # phones can only install the app and get notifications over https)
+      - PUBLIC_URL=https://wishlist.example.com
+      # Email (optional, but needed for invites, reminders and password resets)
+      - MAIL_SERVER=smtp.gmail.com
+      - MAIL_PORT=587
+      - MAIL_USE_TLS=true
+      - MAIL_USERNAME=
+      - MAIL_PASSWORD=
+      - MAIL_DEFAULT_SENDER=
+      # Optional AI features (link lookups, photo characters, gift poems)
+      - GEMINI_API_KEY=
+      - REMINDER_HOUR=9
+      # Optional: use PostgreSQL instead of the built-in SQLite file
+      # - DATABASE_URL=postgresql://user:password@postgres-host:5432/wishlist
     volumes:
-      - ${DB_DIR:-/mnt/user/appdata/christmas-app-db}:/var/lib/postgresql/data
-    healthcheck:
-      # -h 127.0.0.1 so the check only passes once the real server is up over TCP,
-      # not during the image's first-run init (which listens on the socket only)
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 30s
+      - ./data:/app/data
     restart: unless-stopped
-    # The postgres image stops on SIGINT (fast, clean shutdown with a checkpoint).
-    # Docker's default 10s before SIGKILL can cut that short; give it 2 minutes
-    # so "compose down" always leaves a cleanly shut-down database.
-    stop_grace_period: 2m
-    shm_size: 256mb
-    logging: *default-logging
-    networks:
-      - christmas-network
-
-  backup:
-    image: postgres:15-alpine
-    container_name: christmas-backup
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER:-christmas}
-      - POSTGRES_DB=${POSTGRES_DB:-christmas_app}
-      - PGPASSWORD=${POSTGRES_PASSWORD:-christmas}
-      - BACKUP_KEEP_DAYS=${BACKUP_KEEP_DAYS:-14}
-      - TZ=${TZ:-UTC}
-    entrypoint: ["sh", "/backup.sh"]
-    volumes:
-      - ./backup/backup.sh:/backup.sh:ro
-      # Backups land on the array/cache (next to this file), NOT inside docker.img
-      - ${BACKUP_DIR:-./backups}:/backups
-      - ${DATA_DIR:-/mnt/user/appdata/christmas-app-data}:/app-data:ro
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-    logging: *default-logging
-    networks:
-      - christmas-network
-
-networks:
-  christmas-network:
-    driver: bridge
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

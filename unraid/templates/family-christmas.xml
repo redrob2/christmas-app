@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>FamilyChristmas</Name>
+  <Repository>ghcr.io/redrob2/christmas-app-unraid:latest</Repository>
+  <Registry>https://github.com/redrob2/christmas-app-unraid/pkgs/container/christmas-app-unraid</Registry>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/redrob2/christmas-app-unraid/issues</Support>
+  <Project>https://github.com/redrob2/christmas-app-unraid</Project>
+  <ReadMe>https://raw.githubusercontent.com/redrob2/christmas-app-unraid/main/README.md</ReadMe>
+  <Overview>Family wishlists, gift shopping and Secret Santa in one private website. Everyone makes a wishlist (paste a store link and it fills itself in), family members mark gifts as bought without the recipient ever seeing, and an organizer runs a Secret Santa draw with anonymous messages. Works as an installable phone app with notifications. First start: open the WebUI and create the admin account using the setup code shown in this container's log.</Overview>
+  <Category>Tools:Utilities</Category>
+  <WebUI>http://[IP]:[PORT:8123]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/redrob2/unraid-templates/main/templates/family-christmas.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/redrob2/christmas-app-unraid/main/static/icons/icon-512.png</Icon>
+  <ExtraSearchTerms>christmas wishlist wish list gift secret santa family holiday</ExtraSearchTerms>
+  <Requires>For the phone app and notifications, put it behind a reverse proxy with https (e.g. Nginx Proxy Manager or SWAG) and set Public URL. Email settings are needed for invites, reminders and password resets.</Requires>
+  <License>MIT</License>
+  <Changes>Initial release</Changes>
+  <Config Name="WebUI port" Target="8123" Default="8123" Mode="tcp" Description="Port for the web interface." Type="Port" Display="always" Required="true" Mask="false">8123</Config>
+  <Config Name="Appdata" Target="/app/data" Default="/mnt/user/appdata/familychristmas" Mode="rw" Description="Database, photos and generated keys. Back this up (Appdata Backup plugin)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/familychristmas</Config>
+  <Config Name="Public URL" Target="PUBLIC_URL" Default="" Description="The address your family uses, e.g. https://wishlist.example.com - used for links in emails and notifications." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Mail server" Target="MAIL_SERVER" Default="smtp.gmail.com" Description="SMTP server for sending email." Type="Variable" Display="always" Required="false" Mask="false">smtp.gmail.com</Config>
+  <Config Name="Mail port" Target="MAIL_PORT" Default="587" Description="SMTP port (587 with TLS)." Type="Variable" Display="always" Required="false" Mask="false">587</Config>
+  <Config Name="Mail uses TLS" Target="MAIL_USE_TLS" Default="true" Description="true or false." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+  <Config Name="Mail username" Target="MAIL_USERNAME" Default="" Description="SMTP login, e.g. your Gmail address." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Mail password" Target="MAIL_PASSWORD" Default="" Description="SMTP password (for Gmail, an App Password)." Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="Mail sender" Target="MAIL_DEFAULT_SENDER" Default="" Description="From address (defaults to the username)." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Gemini API key" Target="GEMINI_API_KEY" Default="" Description="Optional: Google Gemini key for smarter link lookups, photo characters and gift poems." Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="Reminder hour" Target="REMINDER_HOUR" Default="9" Description="Hour of the day (0-23) reminder emails go out." Type="Variable" Display="advanced" Required="false" Mask="false">9</Config>
+  <Config Name="Database URL" Target="DATABASE_URL" Default="" Description="Optional: postgresql://user:password@host:5432/dbname to use PostgreSQL. Leave empty for the built-in SQLite file in appdata." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="PUID" Target="PUID" Default="99" Description="User ID that owns the appdata files." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Description="Group ID that owns the appdata files." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+</Container>

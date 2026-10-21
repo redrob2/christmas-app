@@ -433,8 +433,8 @@ def export_lists_csv(event, viewer):
 # ---------- Backups (read from the backup service's folder) ----------
 
 def backup_status():
-    folder = current_app.config.get('BACKUP_STATUS_DIR') or '/app/backups'
-    if not os.path.isdir(folder):
+    folder = current_app.config.get('BACKUP_STATUS_DIR')
+    if not folder or not os.path.isdir(folder):
         return {'visible': False, 'folder': folder}
 
     def newest(prefix, suffix):

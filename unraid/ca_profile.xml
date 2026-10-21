@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<CommunityApplications>
+  <Profile>
+Self-hosted apps by redrob2.
+
+**FamilyChristmas** - family wishlists, gift shopping and Secret Santa in one private site, with an installable phone app and notifications.
+
+Questions and bug reports: open an issue on the project's GitHub page.
+  </Profile>
+  <Icon>https://raw.githubusercontent.com/redrob2/christmas-app-unraid/main/static/icons/icon-512.png</Icon>
+  <WebPage>https://github.com/redrob2/christmas-app-unraid</WebPage>
+</CommunityApplications>

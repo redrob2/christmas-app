@@ -64,3 +64,4 @@ data/assignments/*.json
 
 # Backups (database dumps and uploads)
 backups/
+data/

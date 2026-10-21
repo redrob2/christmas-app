@@ -106,7 +106,7 @@
             <div class="card-header"><i data-lucide="database-backup"></i> Backups</div>
             <div class="card-body">
                 {% if not backups.visible %}
-                <p class="text-muted small mb-0">The backup folder isn't visible to the app. After updating, run <code>docker compose up -d</code> so the web container gets the read-only <code>/app/backups</code> mount.</p>
+                <p class="text-muted small mb-0">Back up the appdata folder with Unraid's <strong>Appdata Backup</strong> plugin (it holds the database, photos and keys). If you run separate <code>pg_dump</code> backups, set <code>BACKUP_STATUS_DIR</code> to their folder to see their status here.</p>
                 {% elif not backups.db %}
                 <p class="text-danger mb-0"><i data-lucide="triangle-alert"></i> No database backups yet. Check the <code>backup</code> container: <code>docker compose logs backup</code></p>
                 {% else %}

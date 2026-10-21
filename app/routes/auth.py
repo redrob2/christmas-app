@@ -23,7 +23,14 @@ def login():
         password = request.form.get('password', '')
         remember = bool(request.form.get('remember'))
 
+        if too_many_failures(email):
+            flash('Too many wrong passwords - please wait 15 minutes and try again, '
+                  'or use "Forgot your password?".', 'danger')
+            return render_template('auth/login.html'), 429
+
         user = User.query.filter_by(email=email).first()
+        if not (user and user.check_password(password)):
+            record_failure(email)
 
         if user and not user.is_approved and user.check_password(password):
             flash("Thanks for your patience - an organizer still needs to approve your account. "
@@ -32,6 +39,7 @@ def login():
 
         # Managed people (e.g. young children) have no login of their own
         if user and user.is_approved and not user.is_managed and user.check_password(password):
+            clear_failures(email)
             login_user(user, remember=remember)
             session.pop('event_choice_asked', None)   # ask which event to focus on again
             first_time = user.last_login is None
@@ -250,3 +258,84 @@ def family_question():
     from app.models import AppSettings
     settings = AppSettings.query.first()
     return settings.signup_question if settings and settings.signup_question_active() else None
+
+
+# ==================== SIGN-IN PROTECTION ====================
+
+FAILURE_WINDOW = timedelta(minutes=15)
+MAX_FAILURES_PER_EMAIL = 5      # wrong passwords for one account
+MAX_FAILURES_PER_IP = 20        # wrong passwords from one address (any accounts)
+
+
+def too_many_failures(email):
+    from app.models import LoginFailure
+    since = datetime.utcnow() - FAILURE_WINDOW
+    recent = LoginFailure.query.filter(LoginFailure.created_at >= since)
+    return (recent.filter_by(email=email).count() >= MAX_FAILURES_PER_EMAIL
+            or recent.filter_by(ip=_client_ip()).count() >= MAX_FAILURES_PER_IP)
+
+
+def record_failure(email):
+    from app.models import LoginFailure
+    db.session.add(LoginFailure(ip=_client_ip(), email=email[:120]))
+    LoginFailure.query.filter(LoginFailure.created_at < datetime.utcnow() - timedelta(days=1)).delete()
+    db.session.commit()
+
+
+def clear_failures(email):
+    from app.models import LoginFailure
+    LoginFailure.query.filter_by(email=email).delete()
+    db.session.commit()
+
+
+# ==================== FIRST RUN: CREATE THE ADMIN ====================
+
+@auth_bp.route('/setup', methods=['GET', 'POST'])
+def setup():
+    """Create the first admin account. Protected by the setup code in the container log."""
+    from app.models import AppSettings
+    if User.query.filter_by(is_admin=True).first() is not None:
+        return redirect(url_for('auth.login'))
+    settings = AppSettings.query.first()
+    form = {'name': '', 'email': '', 'site_name': settings.site_name or 'Family Christmas'}
+
+    if request.method == 'POST':
+        form = {'name': request.form.get('name', '').strip()[:100],
+                'email': request.form.get('email', '').lower().strip()[:120],
+                'site_name': request.form.get('site_name', '').strip()[:100] or 'Family Christmas'}
+        password = request.form.get('password', '')
+        code = request.form.get('setup_code', '').strip().upper().replace(' ', '')
+        error = None
+        if too_many_failures('setup'):
+            error = 'Too many wrong setup codes - please wait 15 minutes.'
+        elif not settings.setup_code or not secrets.compare_digest(code, settings.setup_code):
+            record_failure('setup')
+            error = "That setup code isn't right. It's printed in the container log (Unraid: Docker tab → app icon → Logs)."
+        elif not form['name'] or not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', form['email']):
+            error = 'Please enter your name and a valid email address.'
+        elif len(password) < 8:
+            error = 'Please choose a password of at least 8 characters.'
+        elif password != request.form.get('confirm_password', ''):
+            error = "The two passwords don't match."
+        if error:
+            flash(error, 'danger')
+            return render_template('auth/setup.html', form=form)
+
+        admin = User.query.filter_by(email=form['email']).first() or User(email=form['email'])
+        admin.name, admin.is_admin, admin.is_approved = form['name'], True, True
+        admin.must_change_password = False
+        admin.set_password(password)
+        db.session.add(admin)
+        settings.site_name = form['site_name']
+        settings.setup_code = None
+        db.session.commit()
+        current_app.config['HAS_ADMIN'] = True
+        login_user(admin)
+        admin.last_login = admin.last_seen_at = datetime.utcnow()
+        db.session.commit()
+        from app.admin_tools import log_activity
+        log_activity('user_added', f'{admin.name} created the admin account (first run)', actor=admin)
+        flash("You're all set! Next: create your first event, then add your family.", 'success')
+        return redirect(url_for('admin.admin_dashboard'))
+
+    return render_template('auth/setup.html', form=form)
