@@ -340,3 +340,47 @@ def setup():
         return redirect(url_for('admin.admin_dashboard'))
 
     return render_template('auth/setup.html', form=form)
+
+
+@auth_bp.route('/setup/restore', methods=['POST'])
+def setup_restore():
+    """First run: start from a backup instead of an empty site (needs the setup code too)"""
+    from app.models import AppSettings
+    from app.backup import BackupError, restart_workers_soon, restore_backup
+    if User.query.filter_by(is_admin=True).first() is not None:
+        return redirect(url_for('auth.login'))
+    settings = AppSettings.query.first()
+    code = request.form.get('setup_code', '').strip().upper().replace(' ', '')
+    if too_many_failures('setup'):
+        flash('Too many wrong setup codes - please wait 15 minutes.', 'danger')
+        return redirect(url_for('auth.setup') + '#restore')
+    if not settings.setup_code or not secrets.compare_digest(code, settings.setup_code):
+        record_failure('setup')
+        flash("That setup code isn't right. It's printed in the container log.", 'danger')
+        return redirect(url_for('auth.setup') + '#restore')
+    upload = request.files.get('backup_file')
+    if not upload or not upload.filename:
+        flash('Choose the backup file.', 'danger')
+        return redirect(url_for('auth.setup') + '#restore')
+    import os
+    import tempfile
+    handle, path = tempfile.mkstemp(suffix='.xmasbackup')
+    with os.fdopen(handle, 'wb') as f:
+        upload.save(f)
+    try:
+        summary = restore_backup(path, request.form.get('passphrase', ''))
+    except BackupError as e:
+        flash(str(e), 'danger')
+        return redirect(url_for('auth.setup') + '#restore')
+    finally:
+        os.remove(path)
+    current_app.config['HAS_ADMIN'] = True
+    from app.admin_tools import log_activity
+    log_activity('backup_restored', f"first run - {summary['people']} people, {summary['photos']} photos")
+    flash(f"Welcome back! Restored {summary['people']} people, {summary['events']} events and "
+          f"{summary['photos']} photos. Sign in with your usual email and password.", 'success')
+    response = redirect(url_for('auth.login'))
+    restart = restart_workers_soon(request)
+    if restart:
+        response.call_on_close(restart)
+    return response

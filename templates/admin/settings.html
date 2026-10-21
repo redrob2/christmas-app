@@ -102,6 +102,60 @@
             </div>
         </div>
 
+        <div class="christmas-card mt-4" id="backup">
+            <div class="card-header gold-header"><i data-lucide="archive"></i> Backup &amp; move</div>
+            <div class="card-body d-flex flex-column gap-3">
+                <p class="mb-0">Download <strong>everything</strong> - people, passwords, lists, purchases, Secret Santa, messages,
+                    settings and photos - as one file. Use it as a backup, or to move to a new server{% if not restore_enabled %} or to the single-container version of the app{% endif %}.</p>
+                <form action="{{ url_for('admin.backup_export') }}" method="POST" class="christmas-form d-flex flex-column gap-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="row g-2">
+                        <div class="col-sm-6">
+                            <label for="passphrase" class="form-label small mb-1">Passphrase for the file</label>
+                            <input type="password" class="form-control" id="passphrase" name="passphrase" minlength="8" required autocomplete="new-password">
+                        </div>
+                        <div class="col-sm-6">
+                            <label for="confirm_passphrase" class="form-label small mb-1">Type it again</label>
+                            <input type="password" class="form-control" id="confirm_passphrase" name="confirm_passphrase" minlength="8" required autocomplete="new-password">
+                        </div>
+                    </div>
+                    <small class="text-muted">The file is encrypted with this passphrase (it holds password hashes, addresses and who drew whom).
+                        Keep the passphrase somewhere safe - without it the file can't be opened, by you or anyone else.</small>
+                    <div><button type="submit" class="btn btn-christmas" data-loading-text="Preparing the file..."><i data-lucide="download"></i> Download backup</button></div>
+                </form>
+            </div>
+        </div>
+
+        <div class="christmas-card mt-4" id="restore">
+            <div class="card-header"><i data-lucide="upload"></i> Restore from a backup</div>
+            <div class="card-body">
+                <p class="text-danger fw-bold mb-2"><i data-lucide="triangle-alert"></i> This replaces everything on this site - all people, lists and photos - with the backup's.</p>
+                <form action="{{ url_for('admin.backup_restore') }}" method="POST" enctype="multipart/form-data" class="christmas-form d-flex flex-column gap-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div>
+                        <label for="backup_file" class="form-label small mb-1">Backup file (.xmasbackup)</label>
+                        <input type="file" class="form-control" id="backup_file" name="backup_file" accept=".xmasbackup" required>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-sm-4">
+                            <label for="restore_passphrase" class="form-label small mb-1">Its passphrase</label>
+                            <input type="password" class="form-control" id="restore_passphrase" name="passphrase" required autocomplete="off">
+                        </div>
+                        <div class="col-sm-4">
+                            <label for="restore_password" class="form-label small mb-1">Your password</label>
+                            <input type="password" class="form-control" id="restore_password" name="password" required autocomplete="current-password">
+                        </div>
+                        <div class="col-sm-4">
+                            <label for="restore_confirm" class="form-label small mb-1">Type RESTORE</label>
+                            <input type="text" class="form-control" id="restore_confirm" name="confirm" required autocomplete="off">
+                        </div>
+                    </div>
+                    <small class="text-muted">Large backups: if the upload fails through your reverse proxy, open this page via the server's own address (http://SERVER-IP:PORT) instead.</small>
+                    <div><button type="submit" class="btn btn-outline-danger" data-loading-text="Restoring..."><i data-lucide="upload"></i> Replace everything with this backup</button></div>
+                </form>
+            </div>
+        </div>
+
         <div class="christmas-card mt-4" id="backups">
             <div class="card-header"><i data-lucide="database-backup"></i> Backups</div>
             <div class="card-body">

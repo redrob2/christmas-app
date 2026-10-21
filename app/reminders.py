@@ -46,6 +46,9 @@ def send_reminders(today=None):
     settings = AppSettings.query.first()
     if not settings or not settings.reminders_enabled:
         return 0
+    # (a backup restore may have replaced the notification keys since this process started)
+    from app.push import ensure_vapid_keys
+    ensure_vapid_keys()
 
     today = today or datetime.now().date()
     sent = 0

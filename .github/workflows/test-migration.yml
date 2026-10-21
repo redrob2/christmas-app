@@ -1,5 +1,6 @@
-# Tests copy-database against a real PostgreSQL (the old docker compose setup's
-# database) in both directions: PostgreSQL -> SQLite and SQLite -> PostgreSQL.
+# Tests moving data against a real PostgreSQL (the old docker compose setup's database):
+# copy-database both ways, and the Backup & move file (export from PostgreSQL,
+# restore into a new SQLite install).
 name: Test database copy
 
 on:
@@ -28,10 +29,14 @@ jobs:
           python-version: '3.12'
       - run: pip install -r requirements.txt
       - name: Create a second empty database
-        run: PGPASSWORD=christmas psql -h localhost -U christmas -d family -c 'CREATE DATABASE target'
+        run: |
+          PGPASSWORD=christmas psql -h localhost -U christmas -d family -c 'CREATE DATABASE target'
+          PGPASSWORD=christmas psql -h localhost -U christmas -d family -c 'CREATE DATABASE backupsource'
       - name: PostgreSQL -> SQLite
         run: python tests/migration/copy_test.py . . postgresql://christmas:christmas@localhost:5432/family
       - name: SQLite -> PostgreSQL
         env:
           TARGET_DATABASE_URL: postgresql://christmas:christmas@localhost:5432/target
         run: python tests/migration/copy_test.py . .
+      - name: Backup file - PostgreSQL export -> SQLite restore
+        run: python tests/migration/backup_test.py . . postgresql://christmas:christmas@localhost:5432/backupsource

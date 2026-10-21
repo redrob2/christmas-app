@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, make_response
+import os
 from flask_login import login_required, current_user
 import re
 from datetime import datetime
@@ -582,6 +583,7 @@ def settings():
     }
     push_users = db.session.query(PushSubscription.user_id).distinct().count()
     return render_template('admin/settings.html', settings=app_settings, mail_config=mail_config,
+                           restore_enabled=True,
                            backups=backup_status(), human_size=human_size,
                            push_devices=PushSubscription.query.count(), push_users=push_users,
                            login_users=approved_users().filter(User.is_managed.is_(False)).count())
@@ -706,3 +708,75 @@ def activity():
     events = {e.id: e for e in ChristmasEvent.query.all()}
     return render_template('admin/activity.html', entries=entries, events=events,
                            labels=ACTIVITY_LABELS, event_filter=events.get(event_id))
+
+
+# ==================== BACKUP & MOVE ====================
+
+@admin_bp.route('/backup/export', methods=['POST'])
+@login_required
+@admin_required
+def backup_export():
+    """Download everything (database + photos) as one passphrase-protected file"""
+    import shutil
+    from datetime import date
+    from flask import send_file
+    from app.backup import EXTENSION, BackupError, export_backup
+    passphrase = request.form.get('passphrase', '')
+    if passphrase != request.form.get('confirm_passphrase', ''):
+        flash("The two passphrases don't match.", 'danger')
+        return redirect(url_for('admin.settings') + '#backup')
+    try:
+        path, summary = export_backup(passphrase, app_version=current_app.config.get('APP_VERSION', ''))
+    except BackupError as e:
+        flash(str(e), 'danger')
+        return redirect(url_for('admin.settings') + '#backup')
+    log_activity('backup_exported', f"{summary['tables'].get('users', 0)} people, {summary['photos']} photos")
+    name = re.sub(r'[^A-Za-z0-9]+', '-', get_site_name()).strip('-').lower() or 'wishlist'
+    response = send_file(path, as_attachment=True, mimetype='application/octet-stream',
+                         download_name=f'{name}-{date.today().isoformat()}{EXTENSION}')
+    response.call_on_close(lambda: shutil.rmtree(os.path.dirname(path), ignore_errors=True))
+    return response
+
+
+@admin_bp.route('/backup/restore', methods=['POST'])
+@login_required
+@admin_required
+def backup_restore():
+    """Replace everything with a backup (guarded: admin password + typing RESTORE)"""
+    from flask_login import logout_user
+    from app.backup import BackupError, restart_workers_soon, restore_backup
+    back = redirect(url_for('admin.settings') + '#restore')
+    if not current_user.check_password(request.form.get('password', '')):
+        flash('Your password is not right.', 'danger')
+        return back
+    if request.form.get('confirm', '').strip().upper() != 'RESTORE':
+        flash('Type RESTORE to confirm - this replaces everything.', 'danger')
+        return back
+    upload = request.files.get('backup_file')
+    if not upload or not upload.filename:
+        flash('Choose the backup file.', 'danger')
+        return back
+    path = save_upload_to_temp(upload)
+    try:
+        summary = restore_backup(path, request.form.get('passphrase', ''))
+    except BackupError as e:
+        flash(str(e), 'danger')
+        return back
+    finally:
+        os.remove(path)
+    logout_user()
+    flash(f"Restored {summary['people']} people, {summary['events']} events and {summary['photos']} photos. "
+          'Sign in with your account from the backup.', 'success')
+    response = redirect(url_for('auth.login'))
+    restart = restart_workers_soon(request)
+    if restart:
+        response.call_on_close(restart)
+    return response
+
+
+def save_upload_to_temp(upload):
+    import tempfile
+    handle, path = tempfile.mkstemp(suffix='.xmasbackup')
+    with os.fdopen(handle, 'wb') as f:
+        upload.save(f)
+    return path

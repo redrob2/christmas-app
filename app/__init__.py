@@ -28,6 +28,7 @@ def create_app(config_name='default'):
     app = Flask(__name__,
                 template_folder=os.path.join(basedir, 'templates'),
                 static_folder=os.path.join(basedir, 'static'))
+    app.request_class = AppRequest
 
     app.config.from_object(config[config_name])
     prepare_storage(app)
@@ -119,6 +120,13 @@ def create_app(config_name='default'):
 
     from flask_wtf.csrf import CSRFError
 
+    @app.errorhandler(413)
+    def too_large(e):
+        from flask import flash, redirect, request, url_for
+        flash('That file is too large to upload.', 'danger')
+        referrer = request.referrer or ''
+        return redirect(referrer if referrer.startswith(request.host_url) else url_for('main.index'))
+
     @app.errorhandler(CSRFError)
     def handle_csrf_error(e):
         """Expired/missing form token (e.g. a page left open overnight): retry instead of a bare 400"""
@@ -149,7 +157,7 @@ def create_app(config_name='default'):
         """Until an admin account exists, every page leads to the setup page"""
         from flask import redirect, request, url_for
         if app.config.get('HAS_ADMIN') or request.endpoint in (
-                None, 'static', 'healthz', 'auth.setup', 'pwa.service_worker', 'pwa.manifest',
+                None, 'static', 'healthz', 'auth.setup', 'auth.setup_restore', 'pwa.service_worker', 'pwa.manifest',
                 'pwa.offline', 'pwa.app_version'):
             return None
         from app.models import User
@@ -244,6 +252,24 @@ def create_app(config_name='default'):
         db.engine.dispose()
 
     return app
+
+
+from flask import Request
+
+
+class AppRequest(Request):
+    """Uploads are capped at 16 MB (MAX_CONTENT_LENGTH), except backup restores"""
+    BIG_UPLOADS = ('/setup/restore', '/admin/backup/restore')
+
+    @property
+    def max_content_length(self):
+        if self.path in self.BIG_UPLOADS:
+            return 8 * 1024 ** 3
+        return super().max_content_length
+
+    @max_content_length.setter
+    def max_content_length(self, value):
+        Request.max_content_length.fset(self, value)
 
 
 def prepare_storage(app):

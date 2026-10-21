@@ -80,8 +80,21 @@ Unraid shows **Update available** on the Docker tab. The database is upgraded
 automatically when the new version starts. Installed phone apps offer a
 "new version — Reload" banner.
 
+## Backup & move (one file)
+
+**Admin → Settings → Backup & move → Download backup** saves everything as one file: people, passwords,
+lists, purchases, Secret Santa, messages, settings and photos. The file is encrypted with a passphrase you choose.
+- **Moving to a new server:** start the new install. On its first-run page choose **Moving from another install?**,
+  then enter the setup code, the file and its passphrase. Everyone keeps their account and password, and stays
+  signed in after the container restarts.
+- **Restoring on an existing install:** **Settings → Restore from a backup**. This replaces everything, and asks for
+  your password and the word RESTORE.
+- Large files (many photos) may be blocked by a reverse proxy's upload limit. Use `http://SERVER-IP:PORT` for the restore.
+
 ## Moving from the docker compose (PostgreSQL) setup
 
+Easiest: if the old version has **Backup & move** in its Settings, download a backup there and restore it on
+the new install's first-run page (see above). Otherwise, here are two manual options.
 Everything carries over: people, passwords, lists, purchases, Secret Santa, messages,
 notification sign-ups, and the photos. Back up first:
 

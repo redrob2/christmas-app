@@ -47,6 +47,7 @@ ACTIVITY_LABELS = {
     'names_sent': ('send', 'Names sent'), 'draw_changed': ('git-compare-arrows', 'Draw adjusted'),
     'announcement': ('megaphone', 'Announcement'), 'nudge': ('bell-ring', 'Nudge sent'),
     'settings': ('sliders-horizontal', 'Settings changed'),
+    'backup_exported': ('download', 'Backup downloaded'), 'backup_restored': ('upload', 'Backup restored'),
     'signup_requested': ('user-round-search', 'Account requested'),
     'signup_auto': ('badge-check', 'Joined (family question)'),
     'signup_approved': ('user-check', 'Account approved'), 'signup_declined': ('user-x', 'Account declined'),
