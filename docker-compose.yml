@@ -10,7 +10,7 @@
 
 services:
   wishlist:
-    image: ghcr.io/redrob2/christmas-app-unraid:latest
+    image: ghcr.io/redrob2/christmas-app:latest
     # build: .        # uncomment to build from this folder instead
     container_name: wishlist
     ports:

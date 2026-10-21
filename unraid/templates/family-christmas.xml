@@ -1,19 +1,19 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>FamilyChristmas</Name>
-  <Repository>ghcr.io/redrob2/christmas-app-unraid:latest</Repository>
-  <Registry>https://github.com/redrob2/christmas-app-unraid/pkgs/container/christmas-app-unraid</Registry>
+  <Repository>ghcr.io/redrob2/christmas-app:latest</Repository>
+  <Registry>https://github.com/redrob2/christmas-app/pkgs/container/christmas-app</Registry>
   <Network>bridge</Network>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
-  <Support>https://github.com/redrob2/christmas-app-unraid/issues</Support>
-  <Project>https://github.com/redrob2/christmas-app-unraid</Project>
-  <ReadMe>https://raw.githubusercontent.com/redrob2/christmas-app-unraid/main/README.md</ReadMe>
+  <Support>https://github.com/redrob2/christmas-app/issues</Support>
+  <Project>https://github.com/redrob2/christmas-app</Project>
+  <ReadMe>https://raw.githubusercontent.com/redrob2/christmas-app/main/README.md</ReadMe>
   <Overview>Family wishlists, gift shopping and Secret Santa in one private website. Everyone makes a wishlist (paste a store link and it fills itself in), family members mark gifts as bought without the recipient ever seeing, and an organizer runs a Secret Santa draw with anonymous messages. Works as an installable phone app with notifications. First start: open the WebUI and create the admin account using the setup code shown in this container's log.</Overview>
   <Category>Tools:Utilities</Category>
   <WebUI>http://[IP]:[PORT:8123]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/redrob2/unraid-templates/main/templates/family-christmas.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/redrob2/christmas-app-unraid/main/static/icons/icon-512.png</Icon>
+  <Icon>https://raw.githubusercontent.com/redrob2/christmas-app/main/static/icons/icon-512.png</Icon>
   <ExtraSearchTerms>christmas wishlist wish list gift secret santa family holiday</ExtraSearchTerms>
   <Requires>For the phone app and notifications, put it behind a reverse proxy with https (e.g. Nginx Proxy Manager or SWAG) and set Public URL. Email settings are needed for invites, reminders and password resets.</Requires>
   <License>MIT</License>

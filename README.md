@@ -98,7 +98,7 @@ compose network, and map the old data folder (with `uploads/`) to `/app/data`.
 2. Copy the data, using the new image once, on the old network:
 
    ```bash
-   docker run --rm --network christmas-app_christmas-network      -v /mnt/user/appdata/familychristmas:/app/data      ghcr.io/redrob2/christmas-app-unraid:latest      flask --app run:app copy-database --source postgresql://USER:PASSWORD@christmas-db:5432/DBNAME
+   docker run --rm --network christmas-app_christmas-network      -v /mnt/user/appdata/familychristmas:/app/data      ghcr.io/redrob2/christmas-app:latest      flask --app run:app copy-database --source postgresql://USER:PASSWORD@christmas-db:5432/DBNAME
    ```
 3. Copy the photos: `cp -a /mnt/user/appdata/christmas-app-data/uploads /mnt/user/appdata/familychristmas/`
 4. Start the new container on the same port.
@@ -124,7 +124,7 @@ DATA_PATH=./data PREFERRED_URL_SCHEME=http flask --app run:app run --port 8123
 ```
 
 Images are built by GitHub Actions (`.github/workflows/docker.yml`) and published to
-`ghcr.io/redrob2/christmas-app-unraid`: `latest` from `main`, plus version tags like `v1.0.0`.
+`ghcr.io/redrob2/christmas-app`: `latest` from `main`, plus version tags like `v1.0.0`.
 The Unraid template files are drafted in [`unraid/`](unraid/).
 
 ## License

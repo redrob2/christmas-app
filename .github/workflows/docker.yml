@@ -1,6 +1,6 @@
 # Builds the container image and publishes it to GitHub's registry:
-#   ghcr.io/redrob2/christmas-app-unraid:latest   (every push to main)
-#   ghcr.io/redrob2/christmas-app-unraid:1.2.3    (when you push a tag v1.2.3)
+#   ghcr.io/redrob2/christmas-app:latest   (every push to main)
+#   ghcr.io/redrob2/christmas-app:1.2.3    (when you push a tag v1.2.3)
 name: Build image
 
 on:
