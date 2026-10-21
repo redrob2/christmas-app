@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Request an account - {{ site_name }}</title>
+{% include "_head.html" %}
+</head>
+<body>
+    <div class="snowflakes" aria-hidden="true"></div>  {# filled by makeSnow() in christmas.js #}
+
+    <div class="login-container">
+        <div class="login-card fade-in">
+            <div class="card-header">
+                <h1 class="festive"><i data-lucide="tree-pine"></i> {{ site_name }}</h1>
+                <p>Create an account - family can skip the wait below.</p>
+            </div>
+            <div class="card-body">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+                {% endwith %}
+
+                <form method="POST" class="christmas-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    {# Hidden from people; bots that fill it in are ignored #}
+                    <div class="visually-hidden" aria-hidden="true">
+                        <label for="website">Leave this empty</label>
+                        <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+                    </div>
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Your name</label>
+                        <input type="text" class="form-control" id="name" name="name" maxlength="100" required autofocus
+                               autocomplete="name" placeholder="e.g., Ann Smith" value="{{ form.name }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email address</label>
+                        <input type="email" class="form-control" id="email" name="email" maxlength="120" required
+                               autocomplete="email" placeholder="you@example.com" value="{{ form.email }}">
+                        <small class="text-muted">You'll sign in with this, and we'll email you once you're approved.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Choose a password</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="password" name="password" minlength="8" required
+                                   autocomplete="new-password" placeholder="At least 8 characters">
+                            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="#password" aria-label="Show password">
+                                <i data-lucide="eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">Type it again</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" minlength="8" required
+                               autocomplete="new-password">
+                    </div>
+                    <div class="mb-3">
+                        <label for="note" class="form-label">Who are you? <small class="text-muted fw-normal">(optional)</small></label>
+                        <input type="text" class="form-control" id="note" name="note" maxlength="300"
+                               placeholder="e.g., Ann's husband, Grandma's neighbor" value="{{ form.note }}">
+                        <small class="text-muted">Helps the organizer know it's really you.</small>
+                    </div>
+                    {% if family_question %}
+                    <div class="mb-3">
+                        <label for="family_answer" class="form-label">{{ family_question }} <small class="text-muted fw-normal">(optional)</small></label>
+                        <input type="text" class="form-control" id="family_answer" name="family_answer" maxlength="100" autocomplete="off">
+                        <small class="text-muted">Know it? You can sign in right away. Otherwise an organizer approves your account first.</small>
+                    </div>
+                    {% endif %}
+                    <button type="submit" class="btn btn-christmas w-100 mb-3">
+                        <i data-lucide="user-plus"></i> Create my account
+                    </button>
+                </form>
+                <div class="text-center">
+                    <a href="{{ url_for('auth.login') }}" class="text-decoration-none" style="color: var(--christmas-red);">
+                        Already have an account? Sign in
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@1.48.0/dist/umd/lucide.min.js"></script>
+    <script src="{{ url_for('static', filename='js/christmas.js') }}"></script>
+</body>
+</html>

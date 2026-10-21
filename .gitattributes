@@ -1,0 +1,6 @@
+# Keep Linux line endings everywhere: these files run inside Linux containers
+# (a Windows CRLF in backup.sh or the Dockerfile breaks them).
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Item - {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i data-lucide="pencil"></i> Edit Wishlist Item</h1>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        {# Shown for every item, so it doesn't give away whether this one was bought #}
+        <div class="alert alert-info mb-4">
+            <i data-lucide="info"></i>
+            <strong>Heads up:</strong> if anyone has already bought or is chipping in on this item,
+            they'll get an email about your changes so they can double-check.
+        </div>
+
+        <div class="christmas-card">
+            <div class="card-body">
+                {% include "wishlist/_item_form.html" %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/item_form.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+
+{% block title %}Wishlists · {{ event.name }} - {{ site_name }}{% endblock %}
+
+{% block content %}
+{% set days = event.days_until() %}
+<div class="page-header">
+    <p class="eyebrow">Wishlists</p>
+    <h1 class="festive">{{ event.name }}{% if event.year|string not in event.name %} {{ event.year }}{% endif %}</h1>
+    <p>
+        {% if event.event_date %}{{ event.event_date.strftime('%A, %B ') }}{{ event.event_date.day }}{% endif %}
+        {% if days is not none and days > 0 %} · {{ days }} day{{ 's' if days != 1 }} to go{% elif days == 0 %} · It's today!{% endif %}
+        {% if event.description %} · {{ event.description }}{% endif %}
+    </p>
+</div>
+
+{% if santa.assignment %}
+<div class="santa-banner mb-4">
+    <i data-lucide="venetian-mask"></i>
+    <span>You're <strong>{{ santa.assignment.receiver.name }}</strong>'s Secret Santa{% if event.budget %} · limit {{ event.budget|money }}{% endif %}.
+        <a href="{{ url_for('secretsanta.my_assignment', event_id=event.id) }}">Your Secret Santa page</a></span>
+</div>
+{% endif %}
+
+{% if user_wishlist %}
+<div class="christmas-card mb-4">
+    <div class="card-body d-flex flex-wrap align-items-center gap-3">
+        {{ avatar(current_user, 52) }}
+        <div class="flex-grow-1">
+            <h2 class="h5 mb-0">Your list</h2>
+            <span class="text-muted">{{ user_item_count }} item{{ 's' if user_item_count != 1 }} · what's been bought stays a surprise</span>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('wishlist.add_item', wishlist_id=user_wishlist.id) }}" class="btn btn-christmas-green"><i data-lucide="plus"></i> Add an item</a>
+            <a href="{{ url_for('wishlist.view_wishlist', wishlist_id=user_wishlist.id) }}" class="btn btn-quiet">Manage my list</a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="section-bar">
+    <h2 class="section-title">Everyone else</h2>
+    {% if family %}
+    <div class="chip-row" role="group" aria-label="Show">
+        <button type="button" class="chip" data-people-filter="all" aria-pressed="true">Everyone {{ family|length }}</button>
+        <button type="button" class="chip" data-people-filter="need" aria-pressed="false">Still need a gift {{ need_count }}</button>
+    </div>
+    {% endif %}
+</div>
+
+{% if family %}
+<div class="person-grid" id="people">
+    {% for p in family %}
+    <a href="{{ url_for('wishlist.view_wishlist', wishlist_id=p.wishlist.id) }}"
+       class="person-card {% if p.is_pick %}pick{% endif %}" data-needs="{{ 1 if p.needs_gifts else 0 }}">
+        {{ avatar(p.user, 48) }}
+        <span class="info">
+            <strong>{{ p.user.name }}</strong>
+            <span class="sub">{% if p.item_count %}{{ p.item_count }} item{{ 's' if p.item_count != 1 }} · {{ p.available }} left{% else %}No items yet{% endif %}</span>
+            {% if p.is_pick %}<span class="flag">Your Secret Santa pick</span>
+            {% elif p.needs_gifts %}<span class="flag need">Nothing bought for them yet</span>{% endif %}
+        </span>
+    </a>
+    {% endfor %}
+</div>
+<p id="people-none" class="text-white-50 mt-3 d-none">Everyone has at least one gift on the way.</p>
+{% else %}
+<div class="christmas-card"><div class="empty-state py-5">
+    <i data-lucide="users"></i>
+    <p>It's just you so far - other family members' lists will show up here once they're added.</p>
+</div></div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('[data-people-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const needOnly = btn.dataset.peopleFilter === 'need';
+        document.querySelectorAll('[data-people-filter]').forEach(b => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+        let shown = 0;
+        document.querySelectorAll('#people .person-card').forEach(card => {
+            const show = !needOnly || card.dataset.needs === '1';
+            card.classList.toggle('d-none', !show);
+            shown += show ? 1 : 0;
+        });
+        document.getElementById('people-none').classList.toggle('d-none', shown > 0);
+    });
+});
+</script>
+{% endblock %}

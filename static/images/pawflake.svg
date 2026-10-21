@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 100 100">
+  <!-- Easter egg: a snowflake with a dog paw print in the middle -->
+  <defs>
+    <g id="arm" stroke="#fff" stroke-width="3.6" stroke-linecap="round" fill="none">
+      <line x1="50" y1="26" x2="50" y2="3"/>
+      <polyline points="42,8 50,14 58,8"/>
+      <polyline points="44.5,16 50,20.5 55.5,16"/>
+      <circle cx="50" cy="3" r="1.4" fill="#fff" stroke="none"/>
+    </g>
+  </defs>
+
+  <!-- six snowflake arms -->
+  <use xlink:href="#arm" href="#arm"/>
+  <use xlink:href="#arm" href="#arm" transform="rotate(60 50 50)"/>
+  <use xlink:href="#arm" href="#arm" transform="rotate(120 50 50)"/>
+  <use xlink:href="#arm" href="#arm" transform="rotate(180 50 50)"/>
+  <use xlink:href="#arm" href="#arm" transform="rotate(240 50 50)"/>
+  <use xlink:href="#arm" href="#arm" transform="rotate(300 50 50)"/>
+
+  <!-- paw print: four toe beans + main pad, outlined so it reads against the arms -->
+  <g fill="#fff" stroke="#1a1a2e" stroke-width="2.2">
+    <ellipse cx="35.5" cy="44" rx="5.6" ry="7.2" transform="rotate(-28 35.5 44)"/>
+    <ellipse cx="44.5" cy="35" rx="5.8" ry="7.6" transform="rotate(-10 44.5 35)"/>
+    <ellipse cx="55.5" cy="35" rx="5.8" ry="7.6" transform="rotate(10 55.5 35)"/>
+    <ellipse cx="64.5" cy="44" rx="5.6" ry="7.2" transform="rotate(28 64.5 44)"/>
+    <path d="M50 49 C 58 49, 66 56, 65.5 63 C 65 69, 59 70.5, 55 68.5 C 52.5 67.3, 47.5 67.3, 45 68.5 C 41 70.5, 35 69, 34.5 63 C 34 56, 42 49, 50 49 Z"/>
+  </g>
+</svg>

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Edit User - {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i data-lucide="user-pen"></i> Edit User</h1>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="christmas-card">
+            <div class="card-body">
+                <form method="POST" class="christmas-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">
+                            Full Name
+                        </label>
+                        <input type="text" class="form-control" id="name" name="name"
+                               value="{{ user.name }}" required>
+                    </div>
+                    {% if user.is_managed %}
+                    <div class="mb-3">
+                        <label for="managed_by_id" class="form-label">Who looks after their list?</label>
+                        <select class="form-select" id="managed_by_id" name="managed_by_id">
+                            {% for u in login_users %}<option value="{{ u.id }}" {% if u.id == user.managed_by_id %}selected{% endif %}>{{ u.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="border rounded-3 p-3 mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="give_login" name="give_login" data-toggles="#give-login-email">
+                            <label class="form-check-label fw-bold" for="give_login">Give them their own login</label>
+                        </div>
+                        <div id="give-login-email" class="mt-2">
+                            <label for="email" class="form-label">Their email address</label>
+                            <input type="email" class="form-control" id="email" name="email" placeholder="name@example.com">
+                            <small class="text-muted">They'll get a welcome email with a temporary password. Their list and everything on it stays.</small>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="mb-3">
+                        <label for="email" class="form-label">
+                            Email Address
+                        </label>
+                        <input type="email" class="form-control" id="email" name="email"
+                               value="{{ user.email }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="is_admin" name="is_admin"
+                                   {% if user.is_admin %}checked{% endif %}>
+                            <label class="form-check-label" for="is_admin">
+                                <i data-lucide="crown" class="text-warning"></i> Administrator
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-christmas">
+                            <i data-lucide="save"></i> Save Changes
+                        </button>
+                        <a href="{{ url_for('admin.users_list') }}" class="btn btn-outline-christmas">
+                            <i data-lucide="x"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- User Info -->
+        <div class="christmas-card mt-4">
+            <div class="card-header green-header">
+                <i data-lucide="info"></i> User Information
+            </div>
+            <div class="card-body">
+                <p><strong>Created:</strong> {{ user.created_at.strftime('%B %d, %Y') }}</p>
+                <p><strong>Last Login:</strong>
+                    {% if user.last_login %}
+                    {{ user.last_login.strftime('%B %d, %Y at %I:%M %p') }}
+                    {% else %}
+                    Never
+                    {% endif %}
+                </p>
+                <p><strong>Password Status:</strong>
+                    {% if user.must_change_password %}
+                    <span class="badge bg-warning text-dark">Needs to change password</span>
+                    {% else %}
+                    <span class="badge badge-christmas-green">Set</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

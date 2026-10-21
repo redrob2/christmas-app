@@ -1,0 +1,17 @@
+{% extends "emails/_layout.html" %}
+{% block heading %}{% if from_santa %}🎅 A Message From Your Secret Santa{% else %}🎁 {{ sender_name }} Replied{% endif %}{% endblock %}
+{% block content %}
+<p style="font-size: 18px; color: #333;">Hello <strong>{{ recipient.name }}</strong>,</p>
+<p>
+    {% if from_santa %}
+    Your anonymous Secret Santa for <strong>{{ event.name }}</strong> sent you a message:
+    {% else %}
+    <strong>{{ sender_name }}</strong> (the person you're buying for in <strong>{{ event.name }}</strong>) replied:
+    {% endif %}
+</p>
+<div style="background: #fff; border-radius: 15px; padding: 20px; margin: 25px 0; border-left: 4px solid #ffd700; white-space: pre-wrap; color: #333;">{{ body }}</div>
+{% if from_santa %}
+<p>You can reply without ever finding out who they are. 🤫</p>
+{% endif %}
+{% endblock %}
+{% block button %}{% if from_santa %}💬 Reply to Your Santa{% else %}💬 View Conversation{% endif %}{% endblock %}

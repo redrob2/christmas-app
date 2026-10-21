@@ -1,0 +1,12 @@
+{% extends "emails/_layout.html" %}
+{% block heading %}📝 Your Wishlist Is Empty!{% endblock %}
+{% block content %}
+<p style="font-size: 18px; color: #333;">Hello <strong>{{ user.name }}</strong>,</p>
+<p>
+    <strong>{{ event.name }}</strong> is only <strong>{{ days }} day{{ 's' if days != 1 }}</strong> away
+    {% if event.event_date %}({{ event.event_date.strftime('%B %d') }}){% endif %},
+    and your wishlist doesn't have anything on it yet.
+</p>
+<p>Your family is ready to shop - add a few ideas so they know what you'd love! 🎁</p>
+{% endblock %}
+{% block button %}📝 Add to My Wishlist{% endblock %}

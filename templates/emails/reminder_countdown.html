@@ -1,0 +1,30 @@
+{% extends "emails/_layout.html" %}
+{% block heading %}⏰ {{ days }} Day{{ 's' if days != 1 }} Until {{ event.name }}!{% endblock %}
+{% block content %}
+<p style="font-size: 18px; color: #333;">Hello <strong>{{ user.name }}</strong>,</p>
+<p>
+    Just a friendly reminder that <strong>{{ event.name }}</strong> is
+    {% if event.event_date %}on <strong>{{ event.event_date.strftime('%A, %B %d') }}</strong>{% else %}coming up soon{% endif %}.
+</p>
+{% if receiver %}
+<div style="background: #fff; border-radius: 15px; padding: 20px; margin: 25px 0; border-left: 4px solid #c41e3a;">
+    <h3 style="margin-top: 0; color: #c41e3a;">🎅 Your Secret Santa</h3>
+    <p style="margin: 0;">
+        You're buying for <strong>{{ receiver.name }}</strong>
+        {% if event.budget %}(budget: <strong>{{ event.budget|money }}</strong>){% endif %}.
+        {% if bought_for_receiver %}
+        You've marked <strong>{{ bought_for_receiver }}</strong> gift{{ 's' if bought_for_receiver != 1 }} for them so far. ✅
+        {% else %}
+        You haven't marked anything as bought for them yet!
+        {% endif %}
+    </p>
+</div>
+{% endif %}
+{% if unwrapped %}
+<p>🎀 You still have <strong>{{ unwrapped }}</strong> gift{{ 's' if unwrapped != 1 }} to wrap.</p>
+{% endif %}
+{% if empty_list %}
+<p>📝 Your own wishlist is still empty - there's still time to add a few ideas!</p>
+{% endif %}
+{% endblock %}
+{% block button %}🎄 Open {{ site_name }}{% endblock %}

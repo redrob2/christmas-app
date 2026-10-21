@@ -1,0 +1,21 @@
+{% extends "emails/_layout.html" %}
+{% block heading %}{% if auto %}🎉 New Member{% else %}🙋 New Account Request{% endif %}{% endblock %}
+{% block content %}
+<p style="font-size: 18px; color: #333;">Hello <strong>{{ admin.name }}</strong>,</p>
+{% if auto %}
+<p><strong>{{ person.name }}</strong> ({{ person.email }}) created an account and answered the family question correctly, so they can sign in now.</p>
+{% else %}
+<p><strong>{{ person.name }}</strong> ({{ person.email }}) asked to join {{ site_name }}.</p>
+{% endif %}
+{% if person.signup_note %}
+<div style="background: #fff8e1; border-left: 4px solid #ffd700; border-radius: 10px; padding: 12px 16px; margin: 16px 0; color: #333;">
+    <strong>Who they are:</strong> {{ person.signup_note }}
+</div>
+{% endif %}
+{% if auto %}
+<p>They aren't in any event yet - add them in the event's setup (step 2, People). If you don't recognize them, you can delete them from the People page.</p>
+{% else %}
+<p>They can't sign in until an admin approves them. If you don't recognize them, just decline.</p>
+{% endif %}
+{% endblock %}
+{% block button %}{% if auto %}👥 Open People{% else %}✅ Approve or decline{% endif %}{% endblock %}

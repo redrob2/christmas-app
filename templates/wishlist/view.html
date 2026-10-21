@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+
+{% block title %}{{ wishlist.owner.name }}'s Wishlist - {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div class="d-flex align-items-center gap-3">
+        {{ avatar(wishlist.owner, 64, ring=True) }}
+        <div class="page-header mb-0">
+            <h1>{% if is_owner %}My wishlist{% else %}{{ wishlist.owner.name }}'s wishlist{% endif %}</h1>
+            {% if can_edit and not is_owner %}<p class="eyebrow mb-1">You look after this list</p>{% endif %}
+            <p>
+                <a href="{{ url_for('events.view_event', event_id=wishlist.event_id) }}" class="text-reset">{{ wishlist.event.name }} {{ wishlist.event.year }}</a>
+                · {{ items|length }} item{{ 's' if items|length != 1 }}
+                {% if not is_owner %}· {{ items|rejectattr('purchased')|list|length }} still available
+                · <a href="{{ url_for('profile.view_user_profile', user_id=wishlist.owner_id) }}">About {{ wishlist.owner.name.split()[0] }}</a>{% endif %}
+            </p>
+        </div>
+    </div>
+    {% if can_edit and not locked %}
+    <div class="d-flex flex-wrap gap-2">
+        {% if copy_sources %}
+        <div class="dropdown">
+            <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i data-lucide="history"></i> Copy From a Past List
+            </button>
+            <div class="dropdown-menu dropdown-menu-end dropdown-menu-christmas">
+                {% for source in copy_sources %}
+                <form action="{{ url_for('wishlist.copy_items', wishlist_id=wishlist.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="source_id" value="{{ source.wishlist.id }}">
+                    <button type="submit" class="dropdown-item">
+                        {{ source.wishlist.event.name }} ({{ source.wishlist.event.year }})
+                        <small class="text-muted">{{ source.count }} unpurchased</small>
+                    </button>
+                </form>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        <a href="{{ url_for('wishlist.add_item', wishlist_id=wishlist.id) }}" class="btn btn-christmas"><i data-lucide="plus"></i> Add an item</a>
+    </div>
+    {% elif santa_assignment %}
+    <div class="santa-banner">
+        <i data-lucide="venetian-mask"></i>
+        <span><strong>You're {{ wishlist.owner.name.split()[0] }}'s Secret Santa.</strong>
+            {% if wishlist.event.budget %}Limit {{ wishlist.event.budget|money }} ·{% endif %}
+            <a href="{{ url_for('secretsanta.my_assignment', event_id=wishlist.event_id) }}">Ask them something anonymously</a></span>
+    </div>
+    {% endif %}
+</div>
+
+{% if locked %}
+<div class="alert alert-warning christmas-alert"><i data-lucide="lock"></i>
+    Wishlists for {{ wishlist.event.name }} are locked since {{ wishlist.event.lists_lock_date.strftime('%B ') }}{{ wishlist.event.lists_lock_date.day }}{% if can_edit %} - ask the organizer if something needs to change{% endif %}.</div>
+{% endif %}
+{% if can_edit and not is_owner %}
+<p class="text-white-50 mb-3"><i data-lucide="hand-heart"></i> {{ wishlist.owner.name.split()[0] }} doesn't have a login, so you keep this list up to date. You can see what's been bought (they can't).</p>
+{% elif is_owner %}
+<p class="text-white-50 mb-3"><i data-lucide="eye-off"></i> <strong>No peeking:</strong> you can't see what's been bought for you - it's a surprise!</p>
+{% else %}
+<p class="text-white-50 mb-3">Pricey item? Use <strong>Chip In</strong> to go in on it together - {{ wishlist.owner.name.split()[0] }} won't see who.</p>
+{% endif %}
+
+{% if items %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div class="chip-row" role="group" aria-label="Filter gifts">
+        <button type="button" class="chip" data-filter="all" aria-pressed="true">All {{ items|length }}</button>
+        {% if not is_owner %}
+        <button type="button" class="chip" data-filter="available" aria-pressed="false">Available {{ items|rejectattr('purchased')|list|length }}</button>
+        <button type="button" class="chip" data-filter="under50" aria-pressed="false">Under $50</button>
+        {% endif %}
+        <button type="button" class="chip" data-filter="top" aria-pressed="false">Top picks</button>
+        {% if not is_owner %}
+        <button type="button" class="chip" data-filter="group" aria-pressed="false">Group gifts</button>
+        {% endif %}
+    </div>
+    <label class="d-flex align-items-center gap-2 text-white-50">Sort
+        <select class="sort-select" id="gift-sort">
+            <option value="wanted">Most wanted</option>
+            <option value="price">Price: low to high</option>
+            <option value="newest">Newest</option>
+        </select>
+    </label>
+</div>
+
+<div class="gift-grid" id="gifts">
+    {% for item_data in items %}
+    {% set item = item_data.item %}
+    <article class="christmas-card gift-card" id="item-{{ item.id }}"
+             data-order="{{ loop.index }}" data-id="{{ item.id }}" data-priority="{{ item.priority or 0 }}"
+             data-price="{{ item.price if item.price is not none else '' }}"
+             data-available="{{ 0 if item_data.purchased and not is_owner else 1 }}"
+             data-group="{{ 1 if item_data.contributions else 0 }}">
+        <div class="gift-media">
+            {% if item.image %}
+            {% set image_url = url_for('profile.uploaded_file', filename=item.image) %}
+            <img src="{{ image_url }}" alt="{{ item.name }}" data-lightbox="{{ image_url }}" data-caption="{{ item.name }}" loading="lazy">
+            {% else %}
+            <div class="no-photo"><i data-lucide="gift"></i>No photo</div>
+            {% endif %}
+            {% if item.priority %}
+            <span class="gift-flag"><i data-lucide="star"></i> {{ priority_labels[item.priority] }}</span>
+            {% endif %}
+            {% if item.price %}<span class="gift-price">{{ item.price|money }}</span>{% endif %}
+            {% if item_data.purchased and not is_owner %}
+            <div class="gift-overlay"><span><i data-lucide="check"></i>
+                Bought by {{ 'you' if item_data.purchased_by_me else item_data.purchased_by.name }}{% if item_data.purchased_by_me and item.purchase.status != 'purchased' %} · {{ item.purchase.status|capitalize }}{% endif %}</span></div>
+            {% endif %}
+        </div>
+
+        <div class="gift-body">
+            <h2>
+                {% if item.url %}
+                <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">{{ item.name }} <i data-lucide="external-link" style="width: .8em; height: .8em;"></i></a>
+                {% else %}{{ item.name }}{% endif %}
+            </h2>
+            {% if item.color or item.size %}
+            <p class="gift-meta">{{ item.color or '' }}{% if item.color and item.size %} · {% endif %}{{ item.size or '' }}</p>
+            {% endif %}
+            {% if item.notes %}<p class="gift-notes">{{ item.notes }}</p>{% endif %}
+
+            {% if can_edit and not locked %}
+            <div class="gift-actions">
+                <a href="{{ url_for('wishlist.edit_item', item_id=item.id) }}" class="btn btn-quiet grow"><i data-lucide="pencil"></i> Edit</a>
+                <form action="{{ url_for('wishlist.delete_item', item_id=item.id) }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-danger" data-confirm="Delete '{{ item.name }}' from your wishlist?" aria-label="Delete {{ item.name }}">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+            {% if not is_owner %}
+
+            {% if item_data.contributions %}
+            {% set pledged = item.contribution_total() %}
+            <div class="group-meter">
+                <div class="d-flex justify-content-between gap-2"><strong>Group gift</strong>
+                    <span>{% if pledged %}{{ pledged|money }} pledged{% if item.price %} of {{ item.price|money }}{% endif %}{% endif %}</span></div>
+                {% if pledged and item.price %}
+                {% set pct = [((pledged / item.price) * 100)|int, 100]|min %}
+                <div class="meter" role="progressbar" aria-label="Pledged" aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ pct }}%;"></span></div>
+                {% endif %}
+                <span class="text-muted">
+                    {% for c in item_data.contributions %}{{ 'You' if c.user_id == current_user.id else c.user.name }}{% if c.amount %} ({{ c.amount|money }}){% endif %}{{ ', ' if not loop.last }}{% endfor %}
+                    {{ 'is' if item_data.contributions|length == 1 else 'are' }} in</span>
+            </div>
+            {% endif %}
+
+            {% if item_data.purchased_by_me and santa_assignment %}
+            <form action="{{ url_for('wishlist.set_secret_santa_flag', item_id=item.id) }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="secret_santa" value="{{ '0' if item.purchase.is_secret_santa else '1' }}">
+                <button type="submit" class="btn btn-link btn-sm p-0" title="Only you can see this">
+                    {% if item.purchase.is_secret_santa %}
+                    <span class="badge badge-christmas-gold">Your Secret Santa gift</span> <small class="text-muted">(undo)</small>
+                    {% else %}Mark as my Secret Santa gift{% endif %}
+                </button>
+            </form>
+            {% endif %}
+
+            <div class="gift-actions">
+                {% if item_data.purchased_by_me %}
+                    {% if item.purchase.poem %}
+                    <button type="button" class="btn btn-sm view-poem-btn" data-item-name="{{ item.name }}" data-poem="{{ item.purchase.poem }}">
+                        <i data-lucide="scroll-text"></i> View poem</button>
+                    {% endif %}
+                    {% if item.purchase.can_generate_poem() %}
+                    <button type="button" class="btn btn-sm generate-poem-btn" data-url="{{ url_for('wishlist.generate_poem', item_id=item.id) }}" data-item-name="{{ item.name }}">
+                        {% if item.purchase.poem %}<i data-lucide="refresh-cw"></i> New poem ({{ 10 - item.purchase.poem_generation_count }} left)
+                        {% else %}<i data-lucide="feather"></i> Write a Gift Poem{% endif %}</button>
+                    {% endif %}
+                    <form action="{{ url_for('wishlist.unmark_purchased', item_id=item.id) }}" method="POST" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-outline-warning" data-confirm="Unmark this item as purchased?"><i data-lucide="undo-2"></i> Undo</button>
+                    </form>
+                {% elif not item_data.purchased %}
+                    <form action="{{ url_for('wishlist.mark_purchased', item_id=item.id) }}" method="POST" class="d-flex flex-wrap align-items-center gap-2 grow">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-christmas-green grow"><i data-lucide="shopping-cart"></i> I Bought This</button>
+                        {% if santa_assignment %}
+                        <div class="form-check mb-0 small">
+                            <input class="form-check-input" type="checkbox" name="secret_santa" value="1" id="ss-{{ item.id }}" checked>
+                            <label class="form-check-label" for="ss-{{ item.id }}">My Secret Santa gift</label>
+                        </div>
+                        {% endif %}
+                    </form>
+                {% endif %}
+                <button class="btn btn-chipin {% if not item_data.purchased %}grow{% else %}btn-sm{% endif %}" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#chipin-{{ item.id }}" aria-expanded="false" aria-controls="chipin-{{ item.id }}">
+                    <i data-lucide="hand-coins"></i> {{ 'My Share' if item_data.my_contribution else 'Chip In' }}
+                </button>
+            </div>
+
+            <div class="collapse" id="chipin-{{ item.id }}">
+                <div class="chipin-box">
+                    <form action="{{ url_for('wishlist.contribute', item_id=item.id) }}" method="POST" class="d-flex flex-wrap align-items-center gap-2">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="input-group input-group-sm chipin-amount">
+                            <span class="input-group-text">$</span>
+                            <input type="text" inputmode="decimal" name="amount" class="form-control" placeholder="Amount (optional)" aria-label="Amount"
+                                   value="{{ '%.2f'|format(item_data.my_contribution.amount) if item_data.my_contribution and item_data.my_contribution.amount else '' }}">
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-christmas">{{ 'Update' if item_data.my_contribution else "Count Me In" }}</button>
+                    </form>
+                    {% if item_data.my_contribution %}
+                    <form action="{{ url_for('wishlist.withdraw_contribution', item_id=item.id) }}" method="POST" class="mt-2">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-link btn-sm p-0 text-danger">Stop chipping in</button>
+                    </form>
+                    {% endif %}
+                    <small class="text-muted d-block mt-1">Others viewing this list will see you're chipping in. {{ wishlist.owner.name.split()[0] }} won't.</small>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </article>
+    {% endfor %}
+</div>
+<p id="gifts-none" class="text-white-50 mt-3 d-none">Nothing matches that filter.</p>
+
+{% else %}
+<div class="christmas-card">
+    <div class="empty-state py-5">
+        <i data-lucide="gift" class="gift-bounce"></i>
+        {% if can_edit %}
+        <h2 class="h4">{{ 'Your wishlist is empty' if is_owner else wishlist.owner.name.split()[0] ~ "'s wishlist is empty" }}</h2>
+        <p>Add things {{ 'you' if is_owner else 'they' }}'d love to receive this year - paste a link and we'll fill in the details.</p>
+        {% if not locked %}<a href="{{ url_for('wishlist.add_item', wishlist_id=wishlist.id) }}" class="btn btn-christmas"><i data-lucide="plus"></i> Add the first item</a>{% endif %}
+        {% else %}
+        <h2 class="h4">No items yet</h2>
+        <p>{{ wishlist.owner.name }} hasn't added anything yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Poem Modal -->
+<div id="poemModal" class="poem-modal" role="dialog" aria-modal="true" aria-labelledby="poemTitle">
+    <div class="poem-modal-content">
+        <button type="button" class="poem-modal-close" aria-label="Close">&times;</button>
+        <div class="poem-header">
+            <i data-lucide="scroll-text"></i>
+            <h4 id="poemTitle">Gift Poem for "<span id="poemItemName"></span>"</h4>
+        </div>
+        <div class="poem-body"><pre id="poemContent" class="poem-text"></pre></div>
+        <div class="poem-footer">
+            <small id="poemRegenInfo" class="text-white-50"></small>
+            <button id="copyPoemBtn" type="button" class="btn btn-outline-light"><i data-lucide="copy"></i> Copy Poem</button>
+            <button type="button" class="btn btn-secondary poem-modal-close-btn">Close</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    // ---------- Filters and sorting ----------
+    const grid = document.getElementById('gifts');
+    if (grid) {
+        const cards = [...grid.children];
+        let filter = 'all';
+        const matches = card => {
+            const price = parseFloat(card.dataset.price);
+            return filter === 'all'
+                || (filter === 'available' && card.dataset.available === '1')
+                || (filter === 'under50' && !isNaN(price) && price < 50)
+                || (filter === 'top' && Number(card.dataset.priority) >= 2)
+                || (filter === 'group' && card.dataset.group === '1');
+        };
+        const apply = () => {
+            let shown = 0;
+            cards.forEach(card => {
+                const ok = matches(card);
+                card.classList.toggle('is-hidden', !ok);
+                shown += ok ? 1 : 0;
+            });
+            document.getElementById('gifts-none').classList.toggle('d-none', shown > 0);
+        };
+        document.querySelectorAll('[data-filter]').forEach(btn => btn.addEventListener('click', () => {
+            filter = btn.dataset.filter;
+            document.querySelectorAll('[data-filter]').forEach(b => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+            apply();
+        }));
+        document.getElementById('gift-sort').addEventListener('change', e => {
+            const by = e.target.value;
+            const key = card => by === 'price'
+                ? (card.dataset.price === '' ? Infinity : parseFloat(card.dataset.price))
+                : by === 'newest' ? -Number(card.dataset.id) : Number(card.dataset.order);
+            [...cards].sort((a, b) => key(a) - key(b)).forEach(card => grid.appendChild(card));
+        });
+    }
+
+    // ---------- Gift poems ----------
+    const modal = document.getElementById('poemModal');
+    let reloadOnClose = false;
+    function showPoem(itemName, poem, info) {
+        document.getElementById('poemItemName').textContent = itemName;
+        document.getElementById('poemContent').textContent = poem;
+        document.getElementById('poemRegenInfo').textContent = info || '';
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+    function closePoem() {
+        modal.classList.remove('show');
+        document.body.style.overflow = '';
+        if (reloadOnClose) window.location.reload();
+    }
+    document.querySelectorAll('.view-poem-btn').forEach(btn => {
+        btn.addEventListener('click', () => showPoem(btn.dataset.itemName, btn.dataset.poem));
+    });
+    document.querySelectorAll('.generate-poem-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const original = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-circle" class="icon-spin"></i> Writing...';
+            csrfFetch(btn.dataset.url)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.poem) {
+                        reloadOnClose = true;
+                        showPoem(btn.dataset.itemName, data.poem,
+                                 data.can_regenerate ? `Poems written: ${data.generation_count}/10` : 'That was the last new poem (10/10)');
+                    } else {
+                        alert(data.error || 'Failed to generate poem.');
+                    }
+                })
+                .catch(() => alert('Failed to generate poem. Please try again.'))
+                .finally(() => { btn.disabled = false; btn.innerHTML = original; });
+        });
+    });
+    modal.addEventListener('click', e => {
+        if (e.target === modal || e.target.closest('.poem-modal-close, .poem-modal-close-btn')) closePoem();
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('show')) closePoem(); });
+    document.getElementById('copyPoemBtn').addEventListener('click', function () {
+        navigator.clipboard.writeText(document.getElementById('poemContent').textContent).then(() => {
+            this.innerHTML = '<i data-lucide="check"></i> Copied!';
+            setTimeout(() => { this.innerHTML = '<i data-lucide="copy"></i> Copy Poem'; }, 2000);
+        });
+    });
+})();
+</script>
+{% endblock %}

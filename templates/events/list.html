@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Events - {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Events</h1>
+    <p>
+        {% if main and main_is_chosen %}Home opens on <strong>{{ main.name }}</strong>, your main event.
+        {% elif main %}Home opens on whichever event is coming up soonest - right now that's <strong>{{ main.name }}</strong>.
+        {% else %}Every event you're part of.{% endif %}
+    </p>
+</div>
+
+{% if active %}
+<div class="event-grid">
+    {% for event in active %}
+    {% set days = event.days_until() %}
+    {% set is_main = main and event.id == main.id %}
+    <article class="christmas-card event-card {% if is_main %}is-main{% endif %}">
+        <div class="card-body d-flex flex-column gap-2">
+            <div class="d-flex flex-wrap gap-2">
+                {% if is_main %}<span class="badge badge-christmas">{{ 'Main event' if main_is_chosen else 'Showing on Home' }}</span>{% endif %}
+                {% if event.secret_santa_enabled %}<span class="badge badge-christmas-gold">Secret Santa</span>{% endif %}
+            </div>
+            <h2 class="festive mb-0">{{ event.name }}{% if event.year|string not in event.name %} {{ event.year }}{% endif %}</h2>
+            <p class="text-muted mb-0">
+                {% if event.event_date %}{{ event.event_date.strftime('%a, %B ') }}{{ event.event_date.day }}
+                {% if days is not none and days > 0 %} · {{ days }} day{{ 's' if days != 1 }} to go{% elif days == 0 %} · today!{% else %} · has passed{% endif %}
+                {% else %}No date set yet{% endif %}
+            </p>
+            {% if event.description %}<p class="text-muted small mb-0">{{ event.description }}</p>{% endif %}
+            <div class="d-flex flex-wrap gap-2 mt-auto pt-2">
+                <a href="{{ url_for('events.view_event', event_id=event.id) }}" class="btn btn-christmas grow">Open wishlists</a>
+                {% if not (is_main and main_is_chosen) %}
+                <form action="{{ url_for('main.set_main_event') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="event_id" value="{{ event.id }}">
+                    <input type="hidden" name="next" value="{{ url_for('events.list_events') }}">
+                    <button type="submit" class="btn btn-quiet">Make main event</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </article>
+    {% endfor %}
+</div>
+
+{% if main_is_chosen and active|length > 1 %}
+<form action="{{ url_for('main.set_main_event') }}" method="POST" class="mt-3">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="event_id" value="auto">
+    <input type="hidden" name="next" value="{{ url_for('events.list_events') }}">
+    <button type="submit" class="btn btn-outline-light btn-sm">Always show whichever event is soonest instead</button>
+</form>
+{% endif %}
+{% endif %}
+
+{% if past %}
+<section class="mt-5" aria-labelledby="past-title">
+    <h2 id="past-title" class="section-title mb-3">Past events</h2>
+    <div class="chip-row">
+        {% for event in past %}
+        <a href="{{ url_for('events.view_event', event_id=event.id) }}" class="chip text-decoration-none">{{ event.name }} {{ event.year }}</a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if not active and not past %}
+<div class="christmas-card">
+    <div class="empty-state py-5">
+        <i data-lucide="snowflake"></i>
+        <h2 class="h4">No events yet</h2>
+        <p>You haven't been added to any events yet.</p>
+        {% if current_user.is_admin %}
+        <a href="{{ url_for('admin.add_event') }}" class="btn btn-christmas"><i data-lucide="calendar-plus"></i> Create an event</a>
+        {% else %}
+        <p class="mb-0">Ask {{ site_name }}'s organizer to add you to this year's event.</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+
+{% block title %}Set up {{ event.name }} - {{ site_name }}{% endblock %}
+
+{% macro step_link(key, num, title, sub, done, url) %}
+<a href="{{ url }}" class="step-link {% if step == key %}current{% elif done %}done{% endif %}" {% if step == key %}aria-current="step"{% endif %}>
+    <span class="step-num">{% if done and step != key %}<i data-lucide="check"></i>{% else %}{{ num }}{% endif %}</span>
+    <span><strong>{{ title }}</strong><small>{{ sub }}</small></span>
+</a>
+{% endmacro %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div class="page-header mb-0">
+        <p class="eyebrow">Admin · Event setup</p>
+        <h1 class="festive">{{ event.name }}{% if event.year|string not in event.name %} {{ event.year }}{% endif %}</h1>
+        <p>
+            {% if event.is_active %}<span class="badge badge-christmas-green">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive - hidden from Home</span>{% endif %}
+            {% if not event.secret_santa_enabled %}<span class="badge text-bg-secondary">No Secret Santa</span>{% endif %}
+        </p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{{ url_for('admin.event_status', event_id=event.id) }}" class="btn btn-christmas"><i data-lucide="list-checks"></i> Who's ready</a>
+        <a href="{{ url_for('events.view_event', event_id=event.id) }}" class="btn btn-outline-light">View as family</a>
+        <a href="{{ url_for('admin.events_list') }}" class="btn btn-outline-light">All events</a>
+    </div>
+</div>
+
+<div class="setup-layout">
+    <nav class="setup-steps" aria-label="Setup steps">
+        {{ step_link('details', 1, 'Details',
+                     (event.event_date.strftime('%b ') ~ event.event_date.day) if event.event_date else 'Date and description',
+                     event.event_date is not none, url_for('admin.manage_event', event_id=event.id, step='details')) }}
+        {{ step_link('people', 2, 'People', participants|length ~ ' in this event',
+                     participants|length >= 2, url_for('admin.manage_event', event_id=event.id, step='people')) }}
+        {{ step_link('santa', 3, 'Secret Santa',
+                     ('Budget ' ~ (event.budget|money) if event.budget else 'Who is in, budget, pairs') if event.secret_santa_enabled else 'Turned off',
+                     has_assignments or not event.secret_santa_enabled, url_for('admin.manage_event', event_id=event.id, step='santa')) }}
+        {% if event.secret_santa_enabled %}
+        {{ step_link('draw', 4, 'Draw & send',
+                     'Emails sent' if event.assignments_sent else ('Names drawn' if has_assignments else 'Email everyone their name'),
+                     event.assignments_sent, url_for('secretsanta.manage_secret_santa', event_id=event.id, step='draw')) }}
+        {% endif %}
+    </nav>
+
+    <div class="setup-main">
+        <div class="christmas-card">
+            <div class="card-body d-flex flex-column gap-4 p-4">
+
+            {% if step == 'details' %}
+                <div>
+                    <h2 class="h4 mb-1">Event details</h2>
+                    <p class="text-muted mb-0">The date drives the countdown on Home and the reminder emails.</p>
+                </div>
+                <form action="{{ url_for('admin.update_event', event_id=event.id) }}" method="POST" class="christmas-form d-flex flex-column gap-3">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="section" value="details">
+                    <div class="row g-3">
+                        <div class="col-sm-7">
+                            <label for="name" class="form-label">Event name</label>
+                            <input type="text" class="form-control" id="name" name="name" value="{{ event.name }}" maxlength="100" required>
+                        </div>
+                        <div class="col-sm-5">
+                            <label for="event_date" class="form-label">Date</label>
+                            <input type="date" class="form-control" id="event_date" name="event_date"
+                                   value="{{ event.event_date.strftime('%Y-%m-%d') if event.event_date else '' }}">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="lists_lock_date" class="form-label">Lock wishlists on <small class="text-muted fw-normal">(optional)</small></label>
+                        <input type="date" class="form-control" id="lists_lock_date" name="lists_lock_date" style="max-width: 220px;"
+                               value="{{ event.lists_lock_date.strftime('%Y-%m-%d') if event.lists_lock_date else '' }}">
+                        <small class="text-muted">From this day nobody can add or change items, so buyers aren't surprised by late changes. Everyone gets a reminder 3 days before.</small>
+                    </div>
+                    <div>
+                        <label for="description" class="form-label">Where / notes</label>
+                        <textarea class="form-control" id="description" name="description" rows="2"
+                                  placeholder="e.g., Grandma's house, dinner at 5">{{ event.description or '' }}</textarea>
+                    </div>
+                    <div class="setup-footer">
+                        <span></span>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-quiet">Save</button>
+                            <a href="{{ url_for('admin.manage_event', event_id=event.id, step='people') }}" class="btn btn-christmas">Next: people</a>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="border-top pt-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <h3 class="h6 mb-0">{{ 'Hide this event' if event.is_active else 'Show this event again' }}</h3>
+                        <small class="text-muted">{{ 'Inactive events drop off Home and stop sending reminders.' if event.is_active else 'It will appear on everyone’s Home page again.' }}</small>
+                    </div>
+                    <form action="{{ url_for('admin.toggle_event_active', event_id=event.id) }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-quiet">{{ 'Deactivate' if event.is_active else 'Activate' }}</button>
+                    </form>
+                </div>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <h3 class="h6 mb-0">Delete event</h3>
+                        <small class="text-muted">Removes its wishlists, purchases and Secret Santa names. Can't be undone.</small>
+                    </div>
+                    <form action="{{ url_for('admin.delete_event', event_id=event.id) }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-danger"
+                                data-confirm="Are you sure you want to delete '{{ event.name }}'? This will remove all wishlists and assignments. This cannot be undone!">
+                            <i data-lucide="trash-2"></i> Delete Event</button>
+                    </form>
+                </div>
+
+            {% elif step == 'people' %}
+                <div>
+                    <h2 class="h4 mb-1">Who's in this event</h2>
+                    <p class="text-muted mb-0">Everyone added gets their own wishlist for it.</p>
+                </div>
+                {% set available = all_users | rejectattr('id', 'in', participant_ids) | list %}
+                {% if available %}
+                <div class="d-flex flex-wrap gap-2 align-items-end">
+                    <form action="{{ url_for('admin.add_participant', event_id=event.id) }}" method="POST" class="christmas-form d-flex flex-wrap gap-2 align-items-end flex-grow-1">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="flex-grow-1">
+                            <label for="user_id" class="form-label">Add someone</label>
+                            <select class="form-select" name="user_id" id="user_id" required>
+                                <option value="">Choose a person...</option>
+                                {% for user in available %}<option value="{{ user.id }}">{{ user.name }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-christmas-green"><i data-lucide="plus"></i> Add to Event</button>
+                    </form>
+                    {% if available | length > 1 %}
+                    <form action="{{ url_for('admin.add_all_participants', event_id=event.id) }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-quiet"><i data-lucide="users"></i> Add Everyone ({{ available | length }})</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% else %}
+                <p class="mb-0 text-muted"><i data-lucide="circle-check" class="text-success"></i> Everyone is already in this event.
+                    <a href="{{ url_for('admin.add_user') }}">Add a new person</a></p>
+                {% endif %}
+
+                {% if participants %}
+                <div class="person-grid">
+                    {% for p in participants %}
+                    {% set wl = p.user.wishlists.filter_by(event_id=event.id).first() %}
+                    <div class="toggle-tile on">
+                        {{ avatar(p.user, 36) }}
+                        <span class="grow"><span class="d-block">{{ p.user.name }}{% if p.user.is_managed %} <small class="text-muted fw-normal">(no login)</small>{% endif %}</span>
+                            <small class="text-muted fw-normal">{{ wl.items.count() if wl else 0 }} items</small></span>
+                        {% if not event.secret_santa_locked() or p.user_id not in assignments|map(attribute='giver_id')|list %}
+                        <form action="{{ url_for('admin.remove_participant', event_id=event.id, user_id=p.user_id) }}" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-link text-muted" aria-label="Remove {{ p.user.name }}"
+                                    data-confirm="Remove {{ p.user.name }} from this event?"><i data-lucide="x"></i></button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i data-lucide="users"></i>
+                    <p>Nobody's in this event yet. Use <strong>Add Everyone</strong> to invite the whole family at once.</p>
+                </div>
+                {% endif %}
+                <div class="setup-footer">
+                    <a href="{{ url_for('admin.manage_event', event_id=event.id, step='details') }}" class="btn btn-quiet">Back</a>
+                    <a href="{{ url_for('admin.manage_event', event_id=event.id, step='santa') }}" class="btn btn-christmas">Next: Secret Santa</a>
+                </div>
+
+            {% elif step == 'santa' %}
+                <form action="{{ url_for('admin.update_event', event_id=event.id) }}" method="POST" class="christmas-form d-flex flex-column gap-3">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="section" value="santa">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                        <div>
+                            <h2 class="h4 mb-1">Secret Santa</h2>
+                            <p class="text-muted mb-0">Turn it off for get-togethers without a gift swap.</p>
+                        </div>
+                        <div class="form-check form-switch m-0">
+                            <input class="form-check-input" type="checkbox" role="switch" id="secret_santa_enabled" name="secret_santa_enabled"
+                                   data-toggles="#budget-group" {% if event.secret_santa_enabled %}checked{% endif %}>
+                            <label class="form-check-label fw-bold" for="secret_santa_enabled">Include a Secret Santa draw</label>
+                        </div>
+                    </div>
+                    <div id="budget-group" class="d-flex flex-wrap align-items-end gap-2">
+                        <div>
+                            <label for="budget" class="form-label">Spending limit</label>
+                            <div class="input-group" style="max-width: 220px;">
+                                <span class="input-group-text">$</span>
+                                <input type="text" inputmode="decimal" class="form-control" id="budget" name="budget"
+                                       placeholder="e.g., 50" value="{{ '%.2f'|format(event.budget) if event.budget else '' }}">
+                            </div>
+                        </div>
+                    </div>
+                    <div><button type="submit" class="btn btn-quiet">Save</button></div>
+                </form>
+
+                {% if event.secret_santa_enabled %}
+                <fieldset class="m-0 p-0 border-0">
+                    <legend class="h6 mb-2">Who's in the draw</legend>
+                    {% if participants %}
+                    <div class="person-grid">
+                        {% for p in participants %}
+                        <form action="{{ url_for('secretsanta.toggle_participation', event_id=event.id, participant_id=p.id) }}" method="POST"
+                              class="toggle-tile {% if p.participates_in_secret_santa %}on{% endif %}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            {{ avatar(p.user, 32) }}
+                            <span class="grow">{{ p.user.name }}{% if p.user.is_managed %} <small class="text-muted fw-normal">no login - can't draw</small>{% elif not p.participates_in_secret_santa %} <small class="text-muted fw-normal">sitting out</small>{% endif %}</span>
+                            {% if not event.assignments_sent and not p.user.is_managed %}
+                            <button type="submit" class="btn btn-sm {% if p.participates_in_secret_santa %}btn-quiet{% else %}btn-christmas-green{% endif %}"
+                                    title="{{ 'Exclude from' if p.participates_in_secret_santa else 'Include in' }} Secret Santa">
+                                {{ 'Sit out' if p.participates_in_secret_santa else 'Include' }}</button>
+                            {% endif %}
+                        </form>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">Add people in step 2 first.</p>
+                    {% endif %}
+                </fieldset>
+
+                <section aria-labelledby="pairs-title" class="d-flex flex-column gap-2">
+                    <h3 id="pairs-title" class="h6 mb-0">Never pair these people</h3>
+                    <p class="small text-muted mb-1">Handy for couples who already buy for each other.</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for exclusion in exclusions %}
+                        <span class="pair-chip">{{ exclusion.user1.name }} &amp; {{ exclusion.user2.name }}
+                            {% if exclusion.reason %}<small class="text-muted fw-normal">{{ exclusion.reason }}</small>{% endif %}
+                            {% if not event.assignments_sent %}
+                            <form action="{{ url_for('secretsanta.remove_exclusion', event_id=event.id, exclusion_id=exclusion.id) }}" method="POST" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-link text-muted p-1" aria-label="Remove pair {{ exclusion.user1.name }} and {{ exclusion.user2.name }}"><i data-lucide="x"></i></button>
+                            </form>
+                            {% endif %}
+                        </span>
+                        {% else %}
+                        <span class="text-muted small">No pairs set.</span>
+                        {% endfor %}
+                    </div>
+                    {% if not event.assignments_sent and users|length >= 2 %}
+                    <form action="{{ url_for('secretsanta.add_exclusion', event_id=event.id) }}" method="POST" class="christmas-form d-flex flex-wrap gap-2 align-items-end">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div>
+                            <label class="form-label small" for="pair1">Person</label>
+                            <select id="pair1" name="user1_id" class="form-select" required>
+                                <option value="">Choose...</option>
+                                {% for user in users %}<option value="{{ user.id }}">{{ user.name }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label small" for="pair2">and</label>
+                            <select id="pair2" name="user2_id" class="form-select" required>
+                                <option value="">Choose...</option>
+                                {% for user in users %}<option value="{{ user.id }}">{{ user.name }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="flex-grow-1" style="min-width: 160px;">
+                            <label class="form-label small" for="pair-reason">Why (optional)</label>
+                            <input id="pair-reason" type="text" name="reason" class="form-control" placeholder="e.g., Married couple">
+                        </div>
+                        <button type="submit" class="btn btn-quiet"><i data-lucide="plus"></i> Add a pair</button>
+                    </form>
+                    {% endif %}
+                </section>
+                {% endif %}
+
+                <div class="setup-footer">
+                    <a href="{{ url_for('admin.manage_event', event_id=event.id, step='people') }}" class="btn btn-quiet">Back</a>
+                    {% if event.secret_santa_enabled %}
+                    <span class="d-flex align-items-center gap-2 flex-wrap">
+                        {% if participating_count >= 2 %}<span class="text-success fw-bold"><i data-lucide="circle-check"></i> Ready to draw names for {{ participating_count }} people</span>{% endif %}
+                        <a href="{{ url_for('secretsanta.manage_secret_santa', event_id=event.id, step='draw') }}" class="btn btn-christmas">Next: draw names</a>
+                    </span>
+                    {% endif %}
+                </div>
+
+            {% elif step == 'draw' %}
+                <div>
+                    <h2 class="h4 mb-1">Draw names &amp; send</h2>
+                    <p class="text-muted mb-0">You can redraw as often as you like until the emails go out. For secrecy, you never see who drew whom.</p>
+                </div>
+                <div class="stat-trio">
+                    <div><strong>{{ participating_count }}</strong><span>In the draw</span></div>
+                    <div><strong>{{ 'Yes' if has_assignments else 'No' }}</strong><span>Names drawn</span></div>
+                    <div><strong>{{ 'Sent' if event.assignments_sent else 'Not yet' }}</strong><span>Emails</span></div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2">
+                    {% if event.assignments_sent %}
+                    <span class="text-muted"><i data-lucide="lock"></i> Locked - the emails have been sent.</span>
+                    {% elif participating_count < 2 %}
+                    <span class="text-danger fw-bold"><i data-lucide="triangle-alert"></i> At least 2 people need to be in the draw.</span>
+                    {% else %}
+                    <form action="{{ url_for('secretsanta.generate_secret_santa', event_id=event.id) }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn {{ 'btn-quiet' if has_assignments else 'btn-christmas' }}"
+                                data-confirm="{{ 'This will replace the names already drawn. Continue?' if has_assignments else 'Draw Secret Santa names now?' }}">
+                            <i data-lucide="shuffle"></i> {{ 'Redraw' if has_assignments else 'Draw' }} names</button>
+                    </form>
+                    {% if has_assignments %}
+                    <form action="{{ url_for('secretsanta.send_notifications', event_id=event.id) }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-christmas"
+                                data-confirm="Email everyone their Secret Santa name? This locks the draw.">
+                            <i data-lucide="send"></i> Send the emails</button>
+                    </form>
+                    {% endif %}
+                    {% endif %}
+                </div>
+
+                {% if has_assignments %}
+                <div class="table-responsive">
+                    <table class="table christmas-table">
+                        <thead><tr><th>Person</th><th>Email</th><th class="text-end">{{ 'Resend · Drop out' if event.assignments_sent else '' }}</th></tr></thead>
+                        <tbody>
+                            {% for a in assignments|sort(attribute='giver.name') %}
+                            <tr>
+                                <td>{{ a.giver.name }}</td>
+                                <td>{% if a.notified_at %}<span class="badge badge-christmas-green">Sent {{ a.notified_at|localtime('%b %d') }}</span>{% else %}<span class="badge text-bg-secondary">Not sent</span>{% endif %}</td>
+                                <td class="text-end">
+                                    {% if event.assignments_sent %}
+                                    <form action="{{ url_for('secretsanta.resend_notification', event_id=event.id, assignment_id=a.id) }}" method="POST" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-quiet" aria-label="Resend to {{ a.giver.name }}"><i data-lucide="redo-2"></i></button>
+                                    </form>
+                                    <form action="{{ url_for('admin.draw_remove', event_id=event.id, user_id=a.giver_id) }}" method="POST" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-quiet" aria-label="Take {{ a.giver.name }} out of the draw"
+                                                data-confirm="Take {{ a.giver.name }} out of the Secret Santa draw? Only the people affected get a new name, by email - nobody else's changes."><i data-lucide="user-minus"></i></button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+                {% if event.assignments_sent %}
+                {% set drawn_ids = assignments|map(attribute='giver_id')|list %}
+                {% set can_join = participants|rejectattr('user_id', 'in', drawn_ids)|rejectattr('user.is_managed')|list %}
+                <div class="border-top pt-3">
+                    <h3 class="h6 mb-1">Someone joining late or dropping out?</h3>
+                    <p class="small text-muted mb-2">Use <i data-lucide="user-minus"></i> above to take someone out, or add someone below. Only the one or two people affected get a new name (by email and notification) - everyone else keeps theirs, and you still never see who has whom.</p>
+                    {% if can_join %}
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for p in can_join %}
+                        <form action="{{ url_for('admin.draw_add', event_id=event.id, user_id=p.user_id) }}" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-quiet" data-confirm="Add {{ p.user.name }} to the draw? They and one other person will be emailed a name.">
+                                <i data-lucide="user-plus"></i> Add {{ p.user.name }}</button>
+                        </form>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="small text-muted mb-0">Everyone in the event who can draw is already in. Add people in step 2 first.</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+                <div class="setup-footer">
+                    <a href="{{ url_for('admin.manage_event', event_id=event.id, step='santa') }}" class="btn btn-quiet">Back</a>
+                    <a href="{{ url_for('admin.events_list') }}" class="btn btn-quiet">Done</a>
+                </div>
+            {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

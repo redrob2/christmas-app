@@ -1,0 +1,39 @@
+{# A person's avatar: their Rudolph photo when they have one, otherwise
+   coloured initials (the colour is fixed per person). #}
+{% macro avatar(user, size=44, ring=False) %}
+{%- if user.has_ai_photo() -%}
+<img src="{{ url_for('profile.uploaded_file', filename=user.profile_photo_icon) }}" alt=""
+     class="avatar{% if ring %} ring{% endif %}" style="--avatar-size: {{ size }}px;">
+{%- else -%}
+{%- set parts = (user.name or '?').split() -%}
+<span class="avatar c{{ user.id % 6 }}{% if ring %} ring{% endif %}" style="--avatar-size: {{ size }}px;" aria-hidden="true">
+    {{- parts[0][0]|upper }}{% if parts|length > 1 and size >= 40 %}{{ parts[-1][0]|upper }}{% endif -%}
+</span>
+{%- endif -%}
+{% endmacro %}
+
+{# Drag-and-drop image picker. The real file input covers the whole box (transparent),
+   so clicking, keyboard focus, form validation and native drag-and-drop all just work;
+   christmas.js adds the preview, size check, highlight and paste-from-clipboard. #}
+{% macro image_dropzone(name, prompt='Drag a photo here', current_url=None, required=False,
+                        accept='image/png,image/jpeg,image/gif,image/webp', help='JPG, PNG, GIF or WebP · up to 16 MB', allow_paste=True, compact=False) %}
+<div class="dropzone{% if compact %} compact{% endif %}" data-dropzone {% if allow_paste %}data-paste{% endif %}>
+    <input type="file" name="{{ name }}" id="{{ name }}" accept="{{ accept }}" class="dropzone-input"
+           aria-label="{{ prompt }}" {% if required %}required{% endif %}>
+    <img src="{{ current_url or '' }}" alt="" class="dropzone-preview {% if not current_url %}d-none{% endif %}">
+    <div class="dropzone-prompt">
+        <i data-lucide="cloud-upload"></i>
+        <div>
+            {% if compact %}
+            <strong>{{ prompt }}</strong>
+            <small class="d-block text-muted">drop, browse{% if allow_paste %} or paste{% endif %}</small>
+            {% else %}
+            <strong>{{ prompt }}</strong> or <span class="dropzone-browse">browse</span>
+            <small class="d-block text-muted">{{ help }}{% if allow_paste %} · or paste a screenshot{% endif %}</small>
+            {% endif %}
+        </div>
+    </div>
+    <div class="dropzone-file small text-muted d-none"></div>
+    <div class="dropzone-error small text-danger d-none"></div>
+</div>
+{% endmacro %}

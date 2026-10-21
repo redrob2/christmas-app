@@ -1,0 +1,12 @@
+{% extends "emails/_layout.html" %}
+{% block heading %}🎅 Your Secret Santa Name Changed{% endblock %}
+{% block content %}
+<p style="font-size: 18px; color: #333;">Hello <strong>{{ giver.name }}</strong>,</p>
+<p>The Secret Santa draw for <strong>{{ event.name }}</strong> had to be adjusted (someone joined or left), and you have a new person to buy for:</p>
+<div style="background: linear-gradient(135deg, #c41e3a 0%, #006400 100%); border-radius: 16px; padding: 22px; margin: 20px 0; text-align: center; color: white;">
+    <p style="margin: 0 0 8px; opacity: 0.9;">You are now buying a gift for:</p>
+    <h2 style="margin: 0; font-size: 30px;">🎁 {{ receiver.name }}</h2>
+</div>
+<p>Only you know this - keep it secret! Anything you already bought is still yours to give.</p>
+{% endblock %}
+{% block button %}📝 See their wishlist{% endblock %}

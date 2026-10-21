@@ -1,0 +1,8 @@
+{% extends "emails/_layout.html" %}
+{% block heading %}🎄 You're In!{% endblock %}
+{% block content %}
+<p style="font-size: 18px; color: #333;">Hello <strong>{{ user.name }}</strong>,</p>
+<p>Your account for {{ site_name }} has been approved. Sign in with your email address and the password you chose.</p>
+<p>The organizer will add you to this year's event - once they do, you can start your wishlist and see everyone else's. 🎁</p>
+{% endblock %}
+{% block button %}🎄 Sign in{% endblock %}

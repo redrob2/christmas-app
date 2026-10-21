@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Choose your event - {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <p class="eyebrow">Welcome back, {{ current_user.name.split()[0] }}</p>
+    <h1>Which event do you want to focus on?</h1>
+    <p>You're in {{ events|length }} events. Home and the tabs will open on the one you pick - you can switch any time.</p>
+</div>
+
+<div class="event-grid">
+    {% for event in events %}
+    {% set days = event.days_until() %}
+    <article class="christmas-card event-card {% if event.id == chosen_id %}is-main{% endif %}">
+        <div class="card-body d-flex flex-column gap-2">
+            <div class="d-flex flex-wrap gap-2">
+                {% if event.id == soonest.id %}<span class="badge badge-christmas-gold">Coming up soonest</span>{% endif %}
+                {% if event.id == chosen_id %}<span class="badge badge-christmas">Your main event</span>{% endif %}
+            </div>
+            <h2 class="festive mb-0">{{ event.name }}{% if event.year|string not in event.name %} {{ event.year }}{% endif %}</h2>
+            <p class="text-muted mb-0">
+                {% if event.event_date %}{{ event.event_date.strftime('%a, %B ') }}{{ event.event_date.day }}
+                {% if days is not none and days > 0 %} · {{ days }} day{{ 's' if days != 1 }} to go{% elif days == 0 %} · today!{% endif %}
+                {% else %}No date set yet{% endif %}
+            </p>
+            {% if event.description %}<p class="text-muted mb-0 small">{{ event.description }}</p>{% endif %}
+            <form action="{{ url_for('main.set_main_event') }}" method="POST" class="mt-auto pt-2">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="event_id" value="{{ event.id }}">
+                <button type="submit" class="btn {{ 'btn-christmas' if event.id == soonest.id else 'btn-quiet' }} w-100">
+                    Focus on this one</button>
+            </form>
+        </div>
+    </article>
+    {% endfor %}
+</div>
+
+<form action="{{ url_for('main.set_main_event') }}" method="POST" class="mt-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="event_id" value="auto">
+    <button type="submit" class="btn btn-outline-light">Skip - just show whichever is coming up soonest</button>
+</form>
+{% endblock %}

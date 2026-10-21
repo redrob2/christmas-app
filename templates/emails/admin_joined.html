@@ -1,0 +1,8 @@
+{% extends "emails/_layout.html" %}
+{% block heading %}🎉 {{ person.name }} Joined!{% endblock %}
+{% block content %}
+<p style="font-size: 18px; color: #333;">Hello <strong>{{ admin.name }}</strong>,</p>
+<p><strong>{{ person.name }}</strong> just signed in to {{ site_name }} for the first time - the welcome email worked.</p>
+<p>You can see who else has joined, and whose lists are still empty, on the event's <strong>Who's ready</strong> page.</p>
+{% endblock %}
+{% block button %}👥 See everyone{% endblock %}

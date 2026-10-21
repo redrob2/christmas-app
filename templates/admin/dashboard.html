@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div class="page-header mb-0">
+        <p class="eyebrow">Admin</p>
+        <h1><i data-lucide="layout-dashboard"></i> Overview</h1>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{{ url_for('admin.add_user') }}" class="btn btn-christmas"><i data-lucide="user-plus"></i> Add person</a>
+        <a href="{{ url_for('admin.add_event') }}" class="btn btn-christmas-green"><i data-lucide="calendar-plus"></i> Create event</a>
+        <a href="{{ url_for('admin.settings') }}" class="btn btn-outline-light"><i data-lucide="sliders-horizontal"></i> Settings</a>
+    </div>
+</div>
+
+{% if pending %}
+<div class="alert alert-info christmas-alert"><i data-lucide="user-round-search"></i>
+    {{ pending }} account request{{ 's' if pending != 1 }} waiting for approval. <a href="{{ url_for('admin.users_list') }}#pending" class="fw-bold">Review</a></div>
+{% endif %}
+{% if backups.visible and not backups.fresh %}
+<div class="alert alert-warning christmas-alert"><i data-lucide="triangle-alert"></i>
+    {% if backups.db %}The last database backup is {{ (backups.age_hours / 24)|round(1) }} days old{% else %}No database backups found yet{% endif %}
+    - check the <code>backup</code> container. <a href="{{ url_for('admin.settings') }}#backups">Details</a></div>
+{% endif %}
+
+<h2 class="section-title mb-3">Active events</h2>
+{% if active %}
+<div class="row g-4 mb-4">
+    {% for event, s in active %}
+    <div class="col-lg-6">
+        <div class="christmas-card h-100">
+            <div class="card-body d-flex flex-column gap-3">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                        <h3 class="h5 mb-0"><span class="festive">{{ event.name }}</span> {% if event.year|string not in event.name %}{{ event.year }}{% endif %}</h3>
+                        <small class="text-muted">{% if event.event_date %}{{ event.event_date.strftime('%b ') }}{{ event.event_date.day }}{% set d = event.days_until() %}{% if d is not none and d >= 0 %} · {{ d }} day{{ 's' if d != 1 }} to go{% endif %}{% else %}No date yet{% endif %}</small>
+                    </div>
+                    {% if event.secret_santa_enabled %}
+                    <span class="badge {{ 'badge-christmas-gold' if event.assignments_sent else 'text-bg-secondary' }}">{{ 'Names sent' if event.assignments_sent else ('Names drawn' if event.assignments_generated else 'Not drawn') }}</span>
+                    {% endif %}
+                </div>
+                <div class="stat-trio">
+                    <div><strong>{{ s.joined }}/{{ s.logins }}</strong><span>Signed in</span></div>
+                    <div><strong>{{ s.with_items }}/{{ s.people }}</strong><span>Lists started</span></div>
+                    <div><strong>{{ s.needs_gifts }}</strong><span>Nothing bought</span></div>
+                </div>
+                <div class="d-flex flex-wrap gap-2 mt-auto">
+                    <a href="{{ url_for('admin.event_status', event_id=event.id) }}" class="btn btn-christmas btn-sm"><i data-lucide="list-checks"></i> Who's ready</a>
+                    <a href="{{ url_for('admin.manage_event', event_id=event.id) }}" class="btn btn-quiet btn-sm"><i data-lucide="settings"></i> Setup</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="christmas-card mb-4"><div class="empty-state">
+    <i data-lucide="calendar-plus"></i>
+    <p>No active events - create this year's, or copy last year's from <a href="{{ url_for('admin.events_list') }}">Events</a>.</p>
+</div></div>
+{% endif %}
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="christmas-card h-100">
+            <div class="card-header"><i data-lucide="history"></i> Recent activity</div>
+            <div class="card-body">
+                {% if recent %}
+                <ol class="activity-list">
+                    {% for e in recent %}
+                    {% set icon, label = activity_labels.get(e.action, ('circle', e.action)) %}
+                    <li>
+                        <span class="activity-icon"><i data-lucide="{{ icon }}"></i></span>
+                        <span class="grow"><strong>{{ label }}</strong>{% if e.detail %} - {{ e.detail }}{% endif %}
+                            <small class="d-block text-muted">{{ e.created_at|localtime }}{% if e.actor_name %} · {{ e.actor_name }}{% endif %}</small></span>
+                    </li>
+                    {% endfor %}
+                </ol>
+                <a href="{{ url_for('admin.activity') }}" class="btn btn-quiet btn-sm mt-2">See all activity</a>
+                {% else %}
+                <p class="text-muted mb-0">Nothing yet - things you do as admin will show up here.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5 d-flex flex-column gap-4">
+        <div class="christmas-card">
+            <div class="card-header"><i data-lucide="radio"></i> Online now ({{ online|length }})</div>
+            <div class="card-body d-flex flex-column gap-2">
+                {% if online %}
+                <div class="d-flex flex-wrap gap-2">
+                    {% for u in online %}<span class="online-chip"><span class="online-dot" aria-hidden="true"></span>{{ u.name }}</span>{% endfor %}
+                </div>
+                {% else %}
+                <p class="mb-0 text-muted">Nobody else right now.</p>
+                {% endif %}
+                {% if recently %}
+                <p class="small text-muted mb-0">Recently: {% for u in recently %}{{ u.name }} ({{ u.last_seen_at|seen_ago }}){{ ', ' if not loop.last }}{% endfor %}</p>
+                {% endif %}
+                <small class="text-muted">"Online" means they used the app in the last 5 minutes.</small>
+            </div>
+        </div>
+        <div class="christmas-card flex-grow-1">
+            <div class="card-header green-header"><i data-lucide="users"></i> People</div>
+            <div class="card-body d-flex flex-column gap-2">
+                {% set invited = users|rejectattr('is_managed')|selectattr('last_login', 'none')|rejectattr('id', 'eq', current_user.id)|list %}
+                <p class="mb-0"><strong>{{ users|length }}</strong> people{% if users|selectattr('is_managed')|list %}, {{ users|selectattr('is_managed')|list|length }} without a login (lists looked after by someone){% endif %}.</p>
+                {% if invited %}
+                <p class="mb-0 text-muted">Not signed in yet: {{ invited|map(attribute='name')|join(', ') }}</p>
+                {% else %}
+                <p class="mb-0 text-muted"><i data-lucide="circle-check" class="text-success"></i> Everyone has signed in.</p>
+                {% endif %}
+                <div class="d-flex flex-wrap gap-2 mt-auto">
+                    <a href="{{ url_for('admin.users_list') }}" class="btn btn-quiet btn-sm">Manage people</a>
+                    <a href="{{ url_for('admin.events_list') }}" class="btn btn-quiet btn-sm">All events</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

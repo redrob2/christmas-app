@@ -1,0 +1,10 @@
+{% extends "emails/_layout.html" %}
+{% block heading %}🔒 Wishlists Lock Soon{% endblock %}
+{% block content %}
+<p style="font-size: 18px; color: #333;">Hello <strong>{{ user.name }}</strong>,</p>
+<p>Wishlists for <strong>{{ event.name }}</strong> lock on <strong>{{ when }}</strong>
+    ({{ lock_days }} day{{ 's' if lock_days != 1 }} from now). After that nobody can add or change items,
+    so your family isn't surprised by last-minute changes.</p>
+<p>Anything to add or update? Now's the time! 🎁</p>
+{% endblock %}
+{% block button %}📝 Check My Wishlist{% endblock %}

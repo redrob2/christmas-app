@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+
+{% block title %}My Secret Santa - {{ site_name }}{% endblock %}
+
+{% macro thread(messages, mine_from_santa, other_label) %}
+<div class="santa-thread">
+    {% for m in messages %}
+    {% set mine = (m.from_santa == mine_from_santa) %}
+    <div class="santa-msg {% if mine %}mine{% else %}theirs{% endif %}">
+        <div class="santa-msg-body">{{ m.body }}</div>
+        <div class="santa-msg-meta">{{ 'You' if mine else other_label }} · {{ m.created_at|localtime }}</div>
+    </div>
+    {% else %}
+    <p class="text-muted small mb-0 text-center py-3">No messages yet.</p>
+    {% endfor %}
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="page-header">
+    <p class="eyebrow">Secret Santa</p>
+    <h1 class="festive">{{ event.name }}{% if event.year|string not in event.name %} {{ event.year }}{% endif %}</h1>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        {% if not participates %}
+        <div class="christmas-card">
+            <div class="empty-state py-5">
+                <i data-lucide="user-x"></i>
+                <h2 class="h4">Not participating</h2>
+                <p>You're sitting out Secret Santa this time, but you can still shop from everyone's wishlists!</p>
+            </div>
+        </div>
+        {% elif assignment %}
+        <section class="reveal-card on-red d-flex flex-column gap-3" aria-label="Your assignment">
+            <p class="eyebrow mb-0">You drew</p>
+            <div class="d-flex align-items-center gap-3">
+                {{ avatar(assignment.receiver, 64, ring=True) }}
+                <span class="big-name">{{ assignment.receiver.name.split()[0] }}</span>
+            </div>
+            {% if event.budget %}
+            {% set pct = [((santa_spent / event.budget) * 100)|int, 100]|min %}
+            <div class="d-flex flex-column gap-1">
+                <div class="d-flex justify-content-between" style="font-size: .92rem;">
+                    <span>Spent {{ santa_spent|money or '$0' }} of {{ event.budget|money }}</span>
+                    <span>{{ santa_gift_count }} gift{{ 's' if santa_gift_count != 1 }} marked</span>
+                </div>
+                <div class="meter on-red {% if santa_spent > event.budget %}over{% endif %}" role="progressbar" aria-label="Budget used"
+                     aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ pct }}%;"></span></div>
+            </div>
+            {% endif %}
+            <div class="d-grid gap-2" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+                {% if receiver_wishlist %}
+                <a href="{{ url_for('wishlist.view_wishlist', wishlist_id=receiver_wishlist.id) }}" class="btn btn-light">Their wishlist</a>
+                {% endif %}
+                <a href="{{ url_for('profile.view_user_profile', user_id=assignment.receiver_id) }}" class="btn btn-outline-light">Their profile</a>
+            </div>
+            <p class="small mb-0" style="color: #ffd9de;">Shh! Don't tell {{ assignment.receiver.name.split()[0] }}.</p>
+        </section>
+        {% else %}
+        <div class="christmas-card">
+            <div class="empty-state py-5">
+                <i data-lucide="hourglass"></i>
+                <h2 class="h4">No assignment yet</h2>
+                <p>Names haven't been drawn yet - you'll get an email when they are.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-7">
+        <div class="christmas-card">
+            <div class="card-body">
+                <div class="santa-tabs" role="tablist" aria-label="Conversations">
+                    <button type="button" role="tab" id="tab-asking" aria-controls="santa-thread"
+                            aria-selected="{{ 'true' if assignment else 'false' }}" {% if not assignment %}disabled{% endif %}>
+                        Asking {{ assignment.receiver.name.split()[0] if assignment else 'your pick' }}</button>
+                    <button type="button" role="tab" id="tab-from" aria-controls="my-santa-thread"
+                            aria-selected="{{ 'false' if assignment else 'true' }}">From my Santa</button>
+                </div>
+
+                <div id="santa-thread" role="tabpanel" aria-labelledby="tab-asking" {% if not assignment %}hidden{% endif %}>
+                    {% if assignment %}
+                    <p class="small text-muted text-center">{{ assignment.receiver.name.split()[0] }} sees these from "Your Secret Santa" - never your name.</p>
+                    {{ thread(assignment.messages, True, assignment.receiver.name.split()[0]) }}
+                    <form action="{{ url_for('secretsanta.send_santa_message', event_id=event.id) }}" method="POST" class="send-row mt-3">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="role" value="santa">
+                        <label for="ask-body" class="visually-hidden">Message to {{ assignment.receiver.name }}</label>
+                        <textarea id="ask-body" name="body" class="form-control" rows="1" maxlength="2000" required
+                                  placeholder="Ask {{ assignment.receiver.name.split()[0] }} anonymously..."></textarea>
+                        <button type="submit" class="btn btn-christmas" aria-label="Send anonymously"><i data-lucide="send"></i></button>
+                    </form>
+                    {% endif %}
+                </div>
+
+                <div id="my-santa-thread" role="tabpanel" aria-labelledby="tab-from" {% if assignment %}hidden{% endif %}>
+                    {% if my_santa %}
+                    <p class="small text-muted text-center">Someone is shopping for you! They may ask questions here - you'll never see who.</p>
+                    {{ thread(my_santa.messages, False, 'Your Secret Santa') }}
+                    {% if my_santa.messages %}
+                    <form action="{{ url_for('secretsanta.send_santa_message', event_id=event.id) }}" method="POST" class="send-row mt-3">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="role" value="recipient">
+                        <label for="reply-body" class="visually-hidden">Reply to your Secret Santa</label>
+                        <textarea id="reply-body" name="body" class="form-control" rows="1" maxlength="2000" required placeholder="Reply to your Secret Santa..."></textarea>
+                        <button type="submit" class="btn btn-christmas-green" aria-label="Send reply"><i data-lucide="reply"></i></button>
+                    </form>
+                    {% endif %}
+                    {% else %}
+                    <div class="empty-state">
+                        <i data-lucide="snowflake"></i>
+                        <p>Once names are drawn, your Secret Santa can send you questions here.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const tabs = [...document.querySelectorAll('.santa-tabs [role="tab"]')];
+    const show = tab => tabs.forEach(t => {
+        const on = t === tab;
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    });
+    tabs.forEach(t => t.addEventListener('click', () => show(t)));
+    // Arriving from a "reply" link or after replying to your Santa: open that tab
+    if (location.hash === '#my-santa-thread') show(document.getElementById('tab-from'));
+})();
+</script>
+{% endblock %}

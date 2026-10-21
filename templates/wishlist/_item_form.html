@@ -1,0 +1,119 @@
+{#
+  Shared add/edit item form. `item` is None when adding.
+  Pasting a product link fills in the fields (static/js/item_form.js); everything
+  except the name is optional.
+#}
+{% from "_macros.html" import image_dropzone %}
+{% set editing = item is defined and item is not none %}
+<form method="POST" enctype="multipart/form-data" class="christmas-form" id="item-form"
+      data-preview-url="{{ url_for('wishlist.link_preview') }}"
+      data-screenshot-url="{{ url_for('wishlist.read_screenshot') }}" data-mode="{{ 'edit' if editing else 'add' }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="image_url" id="image_url" value="">
+
+    <!-- 1. Link first: paste it and we fill the rest in -->
+    <div class="link-box">
+        <label for="url" class="form-label mb-1">
+            {% if editing %}Product link{% else %}Have a link? Paste it and we'll fill this in for you{% endif %}
+        </label>
+        <div class="input-group">
+            <input type="url" class="form-control" id="url" name="url" inputmode="url" autocomplete="off"
+                   placeholder="https://www.target.com/p/..." value="{{ item.url if editing and item.url else '' }}"
+                   {% if not editing %}autofocus{% endif %}>
+            <button type="button" class="btn btn-outline-secondary d-none" id="paste-link" title="Paste from clipboard">
+                <i data-lucide="clipboard-paste"></i> Paste
+            </button>
+            {% if editing %}
+            <button type="button" class="btn btn-outline-secondary" id="refresh-link" title="Read the link again (e.g. to update the price)">
+                <i data-lucide="refresh-cw"></i> Refresh
+            </button>
+            {% endif %}
+        </div>
+        <div id="link-status" class="link-status small" role="status" aria-live="polite"></div>
+    </div>
+
+    {% if not editing %}
+    <div class="divider-text"><span>or just type it in</span></div>
+    {% endif %}
+
+    <!-- 2. Photo tile beside the essentials (compact: everything fits on one screen) -->
+    {% set current = url_for('profile.uploaded_file', filename=item.image) if editing and item.image else None %}
+    <div class="item-top">
+        <div class="item-photo">
+            <span class="form-label d-block">Photo</span>
+            {{ image_dropzone('image', prompt='Add photo', current_url=current, compact=True) }}
+            {% if current %}
+            <div class="form-check mt-1 small">
+                <input class="form-check-input" type="checkbox" id="remove_image" name="remove_image" value="yes">
+                <label class="form-check-label" for="remove_image">Remove</label>
+            </div>
+            {% endif %}
+        </div>
+        <div class="item-main">
+            <div>
+                <label for="name" class="form-label">What would you like? <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="name" name="name" maxlength="200" required
+                       placeholder="e.g., Cozy Sherpa Throw Blanket" value="{{ item.name if editing else '' }}">
+            </div>
+            <div class="item-price-row">
+                <div class="item-price">
+                    <label for="price" class="form-label">Price</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="text" inputmode="decimal" class="form-control" id="price" name="price"
+                               placeholder="optional" value="{{ '%.2f'|format(item.price) if editing and item.price else '' }}">
+                    </div>
+                </div>
+                <fieldset class="item-priority m-0 p-0 border-0">
+                    <legend class="form-label fs-6 mb-1">How much do you want it?</legend>
+                    {% set current_priority = (item.priority or 0) if editing else 0 %}
+                    <div class="priority-seg">
+                        {% for value, label in [(0, 'Nice'), (1, 'Like'), (2, 'Really'), (3, 'Top pick')] %}
+                        <input type="radio" name="priority" value="{{ value }}" id="priority-{{ value }}" {% if current_priority == value %}checked{% endif %}>
+                        <label for="priority-{{ value }}">{{ label }}</label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+            </div>
+        </div>
+    </div>
+    <div class="photo-tools">
+        <button type="button" class="btn btn-sm btn-chipin d-none" id="read-photo">
+            <i data-lucide="wand-sparkles"></i> Read name &amp; price from this picture
+        </button>
+        <button type="button" class="btn btn-link btn-sm p-0 d-none" id="undo-crop">Use the whole picture instead</button>
+        <div id="photo-status" class="link-status small w-100" role="status" aria-live="polite"></div>
+        {% if not editing %}
+        <small class="text-muted w-100">Shopping in an app? Drop or paste a screenshot as the photo and we'll read the details from it.</small>
+        {% endif %}
+    </div>
+
+    <!-- 3. Optional extras, in one tight block -->
+    <div class="item-extras" id="more-details">
+        <div>
+            <label for="color" class="form-label">Color</label>
+            <input type="text" class="form-control" id="color" name="color" maxlength="50"
+                   placeholder="e.g., Navy" value="{{ (item.color or '') if editing else '' }}">
+        </div>
+        <div>
+            <label for="size" class="form-label">Size</label>
+            <input type="text" class="form-control" id="size" name="size" maxlength="50"
+                   placeholder="e.g., Large" value="{{ (item.size or '') if editing else '' }}">
+        </div>
+        <div class="span-all">
+            <label for="notes" class="form-label">Notes for your family</label>
+            <textarea class="form-control" id="notes" name="notes" rows="2"
+                      placeholder="Stores, alternatives, 'any color but white'...">{{ (item.notes or '') if editing else '' }}</textarea>
+        </div>
+    </div>
+
+    <div class="form-actions sticky-phone">
+        {% if editing %}
+        <button type="submit" class="btn btn-christmas">Save Changes</button>
+        {% else %}
+        <button type="submit" class="btn btn-christmas">Add to Wishlist</button>
+        <button type="submit" name="add_another" value="1" class="btn btn-quiet">Save &amp; Add Another</button>
+        {% endif %}
+        <a href="{{ url_for('wishlist.view_wishlist', wishlist_id=wishlist.id) }}" class="btn btn-link text-muted">Cancel</a>
+    </div>
+</form>

@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% from "_macros.html" import image_dropzone %}
+
+{% block title %}Edit Profile - {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i data-lucide="user-pen"></i> Edit Profile</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-4 mb-4">
+        <!-- AI Photo Upload Section -->
+        <div class="christmas-card mb-4">
+            <div class="card-header red-green-header">
+                <i data-lucide="wand-sparkles"></i> AI Character Photo
+            </div>
+            <div class="card-body text-center">
+                {% if user.has_ai_photo() %}
+                <!-- Current AI Photo -->
+                <div class="profile-photo-container mb-3">
+                    <img src="{{ url_for('profile.uploaded_file', filename=user.profile_photo_ai) }}"
+                         alt="Your AI Character"
+                         class="profile-photo-display"
+                         style="width: 200px; height: 200px; border-radius: 10px;">
+                </div>
+                <p class="text-success small mb-3">
+                    <i data-lucide="circle-check"></i> AI character generated!
+                </p>
+                <div class="d-grid gap-2">
+                    <form action="{{ url_for('profile.regenerate_ai_photo') }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-primary btn-sm w-100"
+                                data-confirm="Generate a new Rudolph character from your photo?"
+                                data-loading-text="Creating... (up to a minute)">
+                            <i data-lucide="refresh-cw"></i> Regenerate Character
+                        </button>
+                    </form>
+                    <form action="{{ url_for('profile.remove_photo') }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-danger btn-sm w-100"
+                                data-confirm="Remove your photo? Your initials will show instead.">
+                            <i data-lucide="trash-2"></i> Remove Photo
+                        </button>
+                    </form>
+                </div>
+                {% else %}
+                <!-- No Photo Yet -->
+                <div class="py-3">
+                    <i data-lucide="camera" class="icon-3x text-muted mb-3 d-block"></i>
+                    <p class="text-muted mb-3">
+                        Upload a photo and our AI will transform you into a<br>
+                        <strong>Rudolph the Red-Nosed Reindeer</strong> style character! 🦌
+                    </p>
+                </div>
+                {% endif %}
+
+                <!-- Upload Form -->
+                <form action="{{ url_for('profile.upload_photo') }}" method="POST" enctype="multipart/form-data" class="mt-3">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        {{ image_dropzone('photo', prompt='Drag your photo here', required=True, allow_paste=False,
+                                          help='A clear face photo works best · up to 16 MB') }}
+                    </div>
+                    <button type="submit" class="btn w-100 btn-christmas-green"
+                            data-loading-text="Creating your character... (up to a minute)">
+                        <i data-lucide="wand-sparkles"></i>
+                        {% if user.has_ai_photo() %}Upload New Photo{% else %}Upload & Transform{% endif %}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-8 mb-4">
+        <form method="POST" class="christmas-form" id="profile-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="christmas-card">
+                <div class="card-header">
+                    <i data-lucide="user"></i> Basic Information
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="name" class="form-label">
+                                Full Name
+                            </label>
+                            <input type="text" class="form-control" id="name" name="name"
+                                   value="{{ user.name }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">
+                                Email Address
+                            </label>
+                            <input type="email" class="form-control" id="email" name="email"
+                                   value="{{ user.email }}" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="birthday" class="form-label">
+                            Birthday
+                        </label>
+                        <input type="date" class="form-control" id="birthday" name="birthday"
+                               value="{{ user.birthday.strftime('%Y-%m-%d') if user.birthday else '' }}">
+                        <small class="text-muted">Let your family know when to celebrate!</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="address" class="form-label">
+                            Address
+                        </label>
+                        <textarea class="form-control" id="address" name="address"
+                                  rows="3" placeholder="123 Main St&#10;City, State 12345">{{ user.address or '' }}</textarea>
+                        <small class="text-muted">Helpful for family members shipping gifts!</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="about_me" class="form-label">
+                            About Me
+                        </label>
+                        <textarea class="form-control" id="about_me" name="about_me"
+                                  rows="4" placeholder="Tell your family about your hobbies, interests, favorite things, sizes, etc. This helps inspire gift ideas!">{{ user.about_me or '' }}</textarea>
+                        <small class="text-muted">Share your interests to help inspire gift ideas!</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mt-3">
+                <button type="submit" class="btn btn-christmas">
+                    <i data-lucide="save"></i> Save Profile
+                </button>
+                <a href="{{ url_for('profile.view_profile') }}" class="btn btn-outline-christmas">
+                    <i data-lucide="x"></i> Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

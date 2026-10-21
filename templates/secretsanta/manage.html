@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}Secret Santa - {{ event.name }} - {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-user-secret"></i> Secret Santa</h1>
+    <p class="text-white-50 mb-0">{{ event.name }} ({{ event.year }})</p>
+</div>
+
+<!-- Status Cards -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="fas fa-users"></i></div>
+            <div class="stat-value">{{ participating_count }}</div>
+            <div class="stat-label">Participating</div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon {% if has_assignments %}green{% else %}red{% endif %}">
+                <i class="fas {% if has_assignments %}fa-check-circle{% else %}fa-times-circle{% endif %}"></i>
+            </div>
+            <div class="stat-value">{% if has_assignments %}Yes{% else %}No{% endif %}</div>
+            <div class="stat-label">Assignments Generated</div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon {% if event.assignments_sent %}green{% else %}red{% endif %}">
+                <i class="fas fa-envelope{% if event.assignments_sent %}-open{% endif %}"></i>
+            </div>
+            <div class="stat-value">{% if event.assignments_sent %}Sent{% else %}Not Sent{% endif %}</div>
+            <div class="stat-label">Email Notifications</div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Left Column: Participants & Exclusions -->
+    <div class="col-lg-6">
+        <!-- Participants Card -->
+        <div class="christmas-card mb-4">
+            <div class="card-header green-header">
+                <i class="fas fa-users"></i> Participants
+                <span class="badge bg-white text-dark ms-2">{{ participants|length }} total</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="padding-left: 1.5rem;">Name</th>
+                                <th class="text-center">Secret Santa</th>
+                                <th class="text-end" style="padding-right: 1.5rem;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for participant in participants %}
+                            <tr>
+                                <td style="padding-left: 1.5rem;">
+                                    <strong>{{ participant.user.name }}</strong>
+                                    <br><small class="text-muted">{{ participant.user.email }}</small>
+                                </td>
+                                <td class="text-center">
+                                    {% if participant.participates_in_secret_santa %}
+                                    <span class="badge bg-success"><i class="fas fa-check"></i> Participating</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary"><i class="fas fa-times"></i> Opted Out</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end" style="padding-right: 1.5rem;">
+                                    {% if not event.assignments_sent %}
+                                    <form action="{{ url_for('secretsanta.toggle_participation', event_id=event.id, participant_id=participant.id) }}" 
+                                          method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        {% if participant.participates_in_secret_santa %}
+                                        <button type="submit" class="btn btn-sm btn-outline-warning" title="Exclude from Secret Santa">
+                                            <i class="fas fa-user-minus"></i>
+                                        </button>
+                                        {% else %}
+                                        <button type="submit" class="btn btn-sm btn-outline-success" title="Include in Secret Santa">
+                                            <i class="fas fa-user-plus"></i>
+                                        </button>
+                                        {% endif %}
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if opted_out_count > 0 %}
+                <div class="p-3 bg-body-tertiary border-top">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i> 
+                        {{ opted_out_count }} member(s) opted out will still have wishlists but won't be assigned in Secret Santa.
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Exclusion Pairs Card -->
+        <div class="christmas-card mb-4">
+            <div class="card-header" style="background: linear-gradient(135deg, #dc3545 0%, #a71d2a 100%);">
+                <i class="fas fa-user-slash"></i> Exclusion Pairs
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    <i class="fas fa-info-circle"></i>
+                    People in an exclusion pair will never be assigned to buy for each other.
+                    Useful for couples who already buy gifts for each other.
+                </p>
+
+                {% if not event.assignments_sent %}
+                <!-- Add Exclusion Form -->
+                <form action="{{ url_for('secretsanta.add_exclusion', event_id=event.id) }}" method="POST" class="mb-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="row g-2">
+                        <div class="col-md-5">
+                            <select name="user1_id" class="form-select form-select-sm" required>
+                                <option value="">Select person...</option>
+                                {% for user in users %}
+                                <option value="{{ user.id }}">{{ user.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-1 text-center d-flex align-items-center justify-content-center">
+                            <i class="fas fa-arrows-alt-h text-muted"></i>
+                        </div>
+                        <div class="col-md-5">
+                            <select name="user2_id" class="form-select form-select-sm" required>
+                                <option value="">Select person...</option>
+                                {% for user in users %}
+                                <option value="{{ user.id }}">{{ user.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-2 mt-2">
+                        <div class="col-md-8">
+                            <input type="text" name="reason" class="form-control form-control-sm" 
+                                   placeholder="Reason (optional, e.g., 'Married couple')">
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-sm w-100 btn-christmas-green">
+                                <i class="fas fa-plus"></i> Add
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                {% endif %}
+
+                <!-- Existing Exclusions -->
+                {% if exclusions %}
+                <div class="list-group">
+                    {% for exclusion in exclusions %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ exclusion.user1.name }}</strong>
+                            <i class="fas fa-arrows-alt-h mx-2 text-muted"></i>
+                            <strong>{{ exclusion.user2.name }}</strong>
+                            {% if exclusion.reason %}
+                            <br><small class="text-muted">{{ exclusion.reason }}</small>
+                            {% endif %}
+                        </div>
+                        {% if not event.assignments_sent %}
+                        <form action="{{ url_for('secretsanta.remove_exclusion', event_id=event.id, exclusion_id=exclusion.id) }}" 
+                              method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove exclusion">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center mb-0">
+                    <i class="fas fa-check-circle"></i> No exclusion pairs set
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Actions -->
+    <div class="col-lg-6">
+        <!-- Generate Assignments Card -->
+        <div class="christmas-card mb-4">
+            <div class="card-header">
+                <i class="fas fa-magic"></i> Secret Santa Actions
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Generate Column -->
+                    <div class="col-md-6 border-end">
+                        <h5 class="mb-3"><i class="fas fa-random text-success"></i> Generate Assignments</h5>
+                        <p class="text-muted small">
+                            Randomly assign each participant to buy a gift for another person. 
+                            You can regenerate until emails are sent.
+                        </p>
+                        {% if event.assignments_sent %}
+                        <div class="alert alert-warning small mb-0">
+                            <i class="fas fa-lock"></i> Locked - Emails have been sent
+                        </div>
+                        {% elif participating_count < 2 %}
+                        <div class="alert alert-warning small mb-0">
+                            <i class="fas fa-exclamation-triangle"></i> Need at least 2 participants
+                        </div>
+                        {% else %}
+                        <form action="{{ url_for('secretsanta.generate_secret_santa', event_id=event.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn w-100 btn-christmas-green"
+                                    onclick="return confirm('{% if has_assignments %}This will replace existing assignments. Continue?{% else %}Generate Secret Santa assignments?{% endif %}')">
+                                <i class="fas fa-random"></i> 
+                                {% if has_assignments %}Regenerate{% else %}Generate{% endif %} Assignments
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+
+                    <!-- Send Column -->
+                    <div class="col-md-6">
+                        <h5 class="mb-3"><i class="fas fa-paper-plane text-primary"></i> Send Notifications</h5>
+                        <p class="text-muted small">
+                            Email each participant their Secret Santa assignment. 
+                            Once sent, assignments cannot be changed.
+                        </p>
+                        {% if not has_assignments %}
+                        <p class="text-muted small mb-0">
+                            <i class="fas fa-arrow-left"></i> Generate assignments first
+                        </p>
+                        {% elif event.assignments_sent %}
+                        <div class="alert alert-success small mb-0">
+                            <i class="fas fa-check-circle"></i> Emails sent!
+                        </div>
+                        {% else %}
+                        <form action="{{ url_for('secretsanta.send_notifications', event_id=event.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-primary w-100"
+                                    onclick="return confirm('Send notification emails to all participants? This will lock the assignments.')">
+                                <i class="fas fa-paper-plane"></i> Send Notifications
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Assignments Card (Admin can't see who got who, but can see status) -->
+        {% if has_assignments %}
+        <div class="christmas-card">
+            <div class="card-header gold-header">
+                <i class="fas fa-list-check"></i> Assignment Status
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    <i class="fas fa-eye-slash"></i> 
+                    For secrecy, you cannot see who is assigned to whom.
+                    Assignments are saved to a backup file on the server.
+                </p>
+                
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Participant</th>
+                                <th class="text-center">Notified</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for assignment in assignments %}
+                            <tr>
+                                <td>{{ assignment.giver.name }}</td>
+                                <td class="text-center">
+                                    {% if assignment.notified_at %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check"></i>
+                                        {{ assignment.notified_at.strftime('%m/%d %H:%M') }}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if event.assignments_sent %}
+                                    <form action="{{ url_for('secretsanta.resend_notification', event_id=event.id, assignment_id=assignment.id) }}" 
+                                          method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-primary" 
+                                                title="Resend notification">
+                                            <i class="fas fa-redo"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{{ url_for('admin.manage_event', event_id=event.id) }}" class="btn btn-outline-light">
+        <i class="fas fa-arrow-left"></i> Back to Event Management
+    </a>
+</div>
+{% endblock %}

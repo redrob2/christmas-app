@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <title>{% block title %}{{ site_name }}{% endblock %}</title>
+{% include "_head.html" %}
+    {% if current_user.is_authenticated %}
+    <meta name="push-key" content="{{ push_public_key() }}">
+    <meta name="unread-count" content="{{ unread_santa_messages or 0 }}">
+    {% endif %}
+    {% block extra_css %}{% endblock %}
+</head>
+<body{% if current_user.is_authenticated %} class="has-tabbar"{% endif %}>
+    <div class="snowflakes" aria-hidden="true"></div>  {# filled by makeSnow() in christmas.js #}
+
+    {% set endpoint = request.endpoint or '' %}
+    {% set tab = 'home' if endpoint == 'main.dashboard'
+                 else 'events' if endpoint in ('events.list_events', 'main.choose_event')
+                 else 'wishlists' if endpoint in ('main.wishlists', 'events.view_event', 'wishlist.view_wishlist', 'wishlist.add_item', 'wishlist.edit_item')
+                 else 'shopping' if endpoint == 'wishlist.shopping_list'
+                 else 'santa' if endpoint in ('main.secret_santa', 'secretsanta.my_assignment')
+                 else '' %}
+
+    <header class="app-nav">
+        <nav class="nav-inner" aria-label="Main">
+            <a class="navbar-brand" href="{{ url_for('main.dashboard') if current_user.is_authenticated else url_for('auth.login') }}">
+                <i data-lucide="tree-pine"></i> {{ site_name }}
+            </a>
+            {% if current_user.is_authenticated %}
+            <div class="nav-tabs-v2">
+                <a class="nav-tab {% if tab == 'home' %}active{% endif %}" href="{{ url_for('main.dashboard') }}" {% if tab == 'home' %}aria-current="page"{% endif %}>Home</a>
+                <a class="nav-tab {% if tab == 'events' %}active{% endif %}" href="{{ url_for('events.list_events') }}" {% if tab == 'events' %}aria-current="page"{% endif %}>Events</a>
+                <a class="nav-tab {% if tab == 'wishlists' %}active{% endif %}" href="{{ url_for('main.wishlists') }}" {% if tab == 'wishlists' %}aria-current="page"{% endif %}>Wishlists</a>
+                <a class="nav-tab {% if tab == 'shopping' %}active{% endif %}" href="{{ url_for('wishlist.shopping_list') }}" {% if tab == 'shopping' %}aria-current="page"{% endif %}>My shopping</a>
+                <a class="nav-tab {% if tab == 'santa' %}active{% endif %}" href="{{ url_for('main.secret_santa') }}" {% if tab == 'santa' %}aria-current="page"{% endif %}>
+                    Secret Santa
+                    {% if unread_santa_messages %}<span class="count-pill" title="Unread Secret Santa messages">{{ unread_santa_messages }}</span>{% endif %}
+                </a>
+            </div>
+            {% endif %}
+            <div class="nav-tools">
+                <button type="button" class="icon-btn theme-toggle" title="Switch light / dark" aria-label="Switch between light and dark mode">
+                    <i data-lucide="sun"></i>
+                </button>
+                {% if current_user.is_authenticated %}
+                <div class="dropdown">
+                    <button type="button" class="account-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu for {{ current_user.name }}">
+                        {% from "_macros.html" import avatar %}
+                        {{ avatar(current_user, 36) }}
+                        {% if pending_signups %}<span class="count-pill" title="Account requests waiting for approval">{{ pending_signups }}</span>{% endif %}
+                        <span class="d-none d-sm-inline">{{ current_user.name.split()[0] }}</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-christmas">
+                        <li><a class="dropdown-item" href="{{ url_for('profile.view_profile') }}"><i data-lucide="user"></i> My profile</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('profile.view_profile') }}#notifications"><i data-lucide="bell"></i> Notifications</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('auth.change_password') }}"><i data-lucide="key-round"></i> Change password</a></li>
+                        {% if current_user.is_admin %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><h6 class="dropdown-header">Admin</h6></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.admin_dashboard') }}"><i data-lucide="layout-dashboard"></i> Admin overview</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.events_list') }}"><i data-lucide="calendar-plus"></i> Events &amp; setup</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.users_list') }}{% if pending_signups %}#pending{% endif %}"><i data-lucide="users"></i> People
+                            {% if pending_signups %}<span class="count-pill" title="Account requests waiting">{{ pending_signups }}</span>{% endif %}</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.activity') }}"><i data-lucide="history"></i> Activity</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.settings') }}"><i data-lucide="sliders-horizontal"></i> Settings</a></li>
+                        {% endif %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i data-lucide="log-out"></i> Log out</a></li>
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </nav>
+    </header>
+
+    <!-- Flash Messages -->
+    <div class="container mt-3" style="max-width: 1200px;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show christmas-alert" role="alert">
+            <i data-lucide="{{ {'success': 'circle-check', 'danger': 'circle-alert', 'warning': 'triangle-alert'}.get(category, 'info') }}"></i>
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endwith %}
+    </div>
+
+    <main class="container py-4" style="max-width: 1200px;">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="christmas-footer">
+        <div class="container text-center" style="max-width: 1200px;">
+            <i data-lucide="tree-pine"></i> {{ site_name }} · Made with love for the holidays
+        </div>
+    </footer>
+
+    {% if current_user.is_authenticated %}
+    <nav class="tabbar" aria-label="Main">
+        <a href="{{ url_for('main.dashboard') }}" class="{% if tab == 'home' %}active{% endif %}" {% if tab == 'home' %}aria-current="page"{% endif %}><i data-lucide="house"></i>Home</a>
+        <a href="{{ url_for('events.list_events') }}" class="{% if tab == 'events' %}active{% endif %}" {% if tab == 'events' %}aria-current="page"{% endif %}><i data-lucide="calendar-days"></i>Events</a>
+        <a href="{{ url_for('main.wishlists') }}" class="{% if tab == 'wishlists' %}active{% endif %}" {% if tab == 'wishlists' %}aria-current="page"{% endif %}><i data-lucide="gift"></i>Wishlists</a>
+        <a href="{{ url_for('wishlist.shopping_list') }}" class="{% if tab == 'shopping' %}active{% endif %}" {% if tab == 'shopping' %}aria-current="page"{% endif %}><i data-lucide="shopping-bag"></i>Shopping</a>
+        <a href="{{ url_for('main.secret_santa') }}" class="{% if tab == 'santa' %}active{% endif %}" {% if tab == 'santa' %}aria-current="page"{% endif %}><i data-lucide="venetian-mask"></i>Santa
+            {% if unread_santa_messages %}<span class="count-pill">{{ unread_santa_messages }}</span>{% endif %}</a>
+    </nav>
+    {% endif %}
+
+    {% if current_user.is_authenticated %}
+    <!-- "Install this app" tip (phones only, shown once by christmas.js) -->
+    <aside class="app-banner" id="install-tip" hidden aria-label="Install the app">
+        <img src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="" class="app-banner-icon">
+        <div class="app-banner-text">
+            <strong>Put {{ site_name }} on your home screen</strong>
+            <span data-install-android hidden>It opens like an app, full screen, and can send you notifications.</span>
+            <span data-install-ios hidden>
+                Tap <span class="kbd-icon" aria-label="Share"><i data-lucide="share"></i></span> Share
+                (on newer iPhones it's in the <strong>•••</strong> menu), then <strong>Add to Home Screen</strong>.
+                Open it from there to turn on notifications.
+            </span>
+        </div>
+        <div class="app-banner-actions">
+            <button type="button" class="btn btn-sm btn-christmas-gold" data-install-go hidden>Install</button>
+            <button type="button" class="icon-btn" data-install-close aria-label="Hide this tip"><i data-lucide="x"></i></button>
+        </div>
+    </aside>
+
+    <!-- Shown when a newer version of the app has been deployed -->
+    <aside class="app-banner" id="update-banner" hidden role="status">
+        <i data-lucide="sparkles" class="app-banner-glyph"></i>
+        <div class="app-banner-text"><strong>A new version is ready</strong><span>Reload to get the latest.</span></div>
+        <div class="app-banner-actions">
+            <button type="button" class="btn btn-sm btn-christmas-gold" data-reload>Reload</button>
+            <button type="button" class="icon-btn" data-dismiss-banner aria-label="Not now"><i data-lucide="x"></i></button>
+        </div>
+    </aside>
+    {% endif %}
+
+    <!-- Shared image lightbox (used by any element with data-lightbox) -->
+    <div id="imageLightbox" class="image-lightbox" role="dialog" aria-modal="true">
+        <div class="lightbox-content">
+            <button class="lightbox-close" title="Close" aria-label="Close">&times;</button>
+            <img src="" alt="">
+            <div class="lightbox-caption"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@1.48.0/dist/umd/lucide.min.js"></script>
+    <script src="{{ url_for('static', filename='js/christmas.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

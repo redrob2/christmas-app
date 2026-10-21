@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+
+{% block title %}{% if viewing_other %}{{ user.name }}'s Profile{% else %}My Profile{% endif %} - {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap">
+    <h1>
+        <i data-lucide="user"></i> 
+        {% if viewing_other %}{{ user.name }}'s Profile{% else %}My Profile{% endif %}
+    </h1>
+    {% if not viewing_other %}
+    <a href="{{ url_for('profile.edit_profile') }}" class="btn btn-christmas">
+        <i data-lucide="pencil"></i> Edit Profile
+    </a>
+    {% endif %}
+</div>
+
+<div class="row">
+    <div class="col-lg-4 mb-4">
+        <div class="christmas-card text-center">
+            <div class="card-body py-4">
+                {% if user.has_ai_photo() %}
+                <!-- AI-Generated Rudolph Character Photo -->
+                <div class="profile-photo-container mb-3">
+                    <img src="{{ url_for('profile.uploaded_file', filename=user.profile_photo_ai) }}" 
+                         alt="{{ user.name }}'s Character"
+                         class="profile-photo-display clickable-photo"
+                         data-lightbox="{{ url_for('profile.uploaded_file', filename=user.profile_photo_ai) }}" data-caption="{{ user.name }}'s Rudolph Character"
+                         title="Click to view larger">
+                    <div class="photo-badge">
+                        <i data-lucide="wand-sparkles"></i> AI Character
+                    </div>
+                </div>
+                {% else %}
+                <div class="mb-3">{{ avatar(user, 120, ring=True) }}</div>
+                {% endif %}
+                <h3 class="mb-1">{{ user.name }}</h3>
+                {% if not user.is_managed %}<p class="text-muted mb-0">{{ user.email }}</p>{% endif %}
+                {% if user.is_admin %}
+                <span class="badge badge-christmas mt-2">Administrator</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-8 mb-4">
+        <div class="christmas-card">
+            <div class="card-header green-header">
+                <i data-lucide="info"></i> Profile Information
+            </div>
+            <div class="card-body">
+                {% if not user.is_managed %}
+                <div class="profile-info-item">
+                    <div class="profile-info-label">Email
+                    </div>
+                    <div>{{ user.email }}</div>
+                </div>
+                {% endif %}
+                
+                <div class="profile-info-item">
+                    <div class="profile-info-label">Birthday
+                    </div>
+                    <div>
+                        {% if user.birthday %}
+                        {{ user.birthday.strftime('%B %d') }}
+                        {% else %}
+                        {% if viewing_other %}<span class="text-muted">Not shared yet</span>
+                        {% else %}<a href="{{ url_for('profile.edit_profile') }}" class="small">Add it</a>{% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="profile-info-item">
+                    <div class="profile-info-label">Address
+                    </div>
+                    <div>
+                        {% if user.address %}
+                        <div class="preserve-lines">{{ user.address }}</div>
+                        {% else %}
+                        {% if viewing_other %}<span class="text-muted">Not shared yet</span>
+                        {% else %}<a href="{{ url_for('profile.edit_profile') }}" class="small">Add it</a>{% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="profile-info-item">
+                    <div class="profile-info-label">About Me
+                    </div>
+                    <div>
+                        {% if user.about_me %}
+                        <div class="preserve-lines">{{ user.about_me }}</div>
+                        {% else %}
+                        {% if viewing_other %}
+                        <span class="text-muted">{{ user.name }} hasn't shared anything yet - their wishlist is the best place to look!</span>
+                        {% else %}
+                        <span class="text-muted">Tell your family about your hobbies, favorite things and sizes - it inspires better gifts.</span>
+                        <a href="{{ url_for('profile.edit_profile') }}" class="small d-block mt-1">Write something</a>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="profile-info-item">
+                    <div class="profile-info-label">Member Since
+                    </div>
+                    <div>{{ user.created_at.strftime('%B %d, %Y') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not viewing_other %}
+<div class="christmas-card mb-4" id="notifications" data-push-panel>
+    <div class="card-header green-header">
+        <i data-lucide="bell"></i> Notifications on this device
+    </div>
+    <div class="card-body">
+        <p class="push-status mb-3" data-push-status role="status" aria-live="polite">Checking...</p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <button type="button" class="btn btn-christmas-green d-none" data-push-enable><i data-lucide="bell-ring"></i> Turn on notifications</button>
+            <button type="button" class="btn btn-quiet d-none" data-push-test><i data-lucide="send"></i> Send a test</button>
+            <button type="button" class="btn btn-quiet d-none" data-push-disable><i data-lucide="bell-off"></i> Turn off</button>
+        </div>
+        <p class="small text-muted mb-0">
+            You'll get a ping when your Secret Santa (or the person you're buying for) sends a message,
+            when Secret Santa names are drawn, when a gift you're buying or chipping in on changes,
+            and for event reminders. Emails still arrive as usual. Each phone or computer is turned on separately.
+        </p>
+    </div>
+</div>
+
+<div class="christmas-card">
+    <div class="card-header gold-header">
+        <i data-lucide="lightbulb"></i> Profile Tips
+    </div>
+    <div class="card-body">
+        <p class="mb-2">
+            <strong>Help your family find great gifts!</strong> Fill out your profile to give others inspiration.
+        </p>
+        <ul class="mb-0">
+            <li>Add your birthday so family knows when to celebrate!</li>
+            <li>Include your address for gift shipping</li>
+            <li>Write a bit about yourself - your hobbies, interests, favorite things - to inspire gift ideas</li>
+            <li><strong>Upload a photo</strong> to get your own Rudolph-style AI character</li>
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

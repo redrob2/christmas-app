@@ -1,0 +1,11 @@
+{% extends "emails/_layout.html" %}
+{% block heading %}📝 A Friendly Nudge{% endblock %}
+{% block content %}
+<p style="font-size: 18px; color: #333;">Hello <strong>{{ user.name }}</strong>,</p>
+<p>
+    Your wishlist for <strong>{{ event.name }}</strong> is still empty{% if days and days > 0 %} and the
+    big day is <strong>{{ days }} day{{ 's' if days != 1 }}</strong> away{% endif %}.
+</p>
+<p>Your family is ready to shop - add a few ideas so they know what you'd love! 🎁 Paste a link from any store and the details fill themselves in.</p>
+{% endblock %}
+{% block button %}📝 Add to My Wishlist{% endblock %}

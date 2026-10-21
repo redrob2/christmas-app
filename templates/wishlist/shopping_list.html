@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+
+{% block title %}My Shopping - {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>My shopping</h1>
+    <p>Everything you've bought or are chipping in on. Only you can see this page.</p>
+</div>
+
+{% if events %}
+{% for entry in events %}
+{% set event = entry.event %}
+{% set c = entry.counts %}
+<section class="mb-5" aria-labelledby="ev-{{ event.id }}">
+    <div class="shop-summary">
+        <div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2">
+            <h2 id="ev-{{ event.id }}" class="festive mb-0" style="font-size: 2rem;">{{ event.name }} {{ event.year }}</h2>
+            <span class="text-white-50">
+                {{ entry.gift_count }} gift{{ 's' if entry.gift_count != 1 }}{% if entry.total %} · {{ entry.total|money }}{% endif %}
+                {% set d = event.days_until() %}{% if d is not none and d > 0 %} · {{ d }} day{{ 's' if d != 1 }} left{% endif %}
+            </span>
+        </div>
+        {% if entry.gift_count %}
+        <div class="stack-bar" role="img" aria-label="{{ c.purchased }} to wrap, {{ c.wrapped }} wrapped, {{ c.given }} given">
+            {% if c.purchased %}<span class="s-bought" style="flex: {{ c.purchased }};"></span>{% endif %}
+            {% if c.wrapped %}<span class="s-wrapped" style="flex: {{ c.wrapped }};"></span>{% endif %}
+            {% if c.given %}<span class="s-given" style="flex: {{ c.given }};"></span>{% endif %}
+        </div>
+        <div class="legend">
+            <span><i style="background: var(--gold-soft);"></i>{{ c.purchased }} to wrap</span>
+            <span><i style="background: #6fd3a0;"></i>{{ c.wrapped }} wrapped</span>
+            <span><i style="background: #9fb4ff;"></i>{{ c.given }} given</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="christmas-card">
+        {% for person in entry.people %}
+        {% set is_santa_pick = person.owner.id == entry.santa_receiver_id %}
+        <div class="shopping-person">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h3 class="h6 mb-0 d-flex align-items-center gap-2">
+                    {{ avatar(person.owner, 32) }} {{ person.owner.name }}
+                    {% if is_santa_pick %}<span class="badge badge-christmas-gold">Secret Santa</span>{% endif %}
+                </h3>
+                <div class="text-end small">
+                    {% if is_santa_pick %}
+                    <div class="{% if event.budget and person.santa_total > event.budget %}text-danger fw-bold{% else %}text-muted{% endif %}">
+                        Secret Santa: {{ person.santa_total|money or '$0' }}
+                        {% if event.budget %}of {{ event.budget|money }} budget{% endif %}
+                    </div>
+                    {% endif %}
+                    {% if person.total and (not is_santa_pick or person.total != person.santa_total) %}
+                    <div class="text-muted">All gifts: {{ person.total|money }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% for p in person.purchases %}
+            <div class="shopping-row">
+                {% if p.item.image %}<img class="shop-thumb" src="{{ url_for('profile.uploaded_file', filename=p.item.image) }}" alt="">
+                {% else %}<span class="shop-thumb d-grid" style="place-items: center;"><i data-lucide="gift" class="text-muted"></i></span>{% endif %}
+                <div class="min-w-0 d-flex flex-column">
+                    <a href="{{ url_for('wishlist.view_wishlist', wishlist_id=p.item.wishlist_id) }}#item-{{ p.item.id }}" class="shopping-name">{{ p.item.name }}</a>
+                    <span class="small text-muted">{% if p.item.price %}{{ p.item.price|money }}{% endif %}</span>
+                </div>
+                {% if is_santa_pick %}
+                <form action="{{ url_for('wishlist.set_secret_santa_flag', item_id=p.item.id) }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="next" value="{{ url_for('wishlist.shopping_list') }}">
+                    <input type="hidden" name="secret_santa" value="{{ '0' if p.is_secret_santa else '1' }}">
+                    <button type="submit" class="btn btn-sm {% if p.is_secret_santa %}btn-christmas-gold{% else %}btn-quiet{% endif %}"
+                            title="{% if p.is_secret_santa %}Counts toward your Secret Santa budget - click to undo{% else %}Count this toward your Secret Santa budget{% endif %}">
+                        {{ 'Secret Santa' if p.is_secret_santa else 'Extra gift' }}
+                    </button>
+                </form>
+                {% endif %}
+                <form action="{{ url_for('wishlist.update_status', item_id=p.item.id) }}" method="POST" class="status-steps" aria-label="Progress for {{ p.item.name }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="next" value="{{ url_for('wishlist.shopping_list') }}">
+                    {% for value, label, icon in statuses %}
+                    <button type="submit" name="status" value="{{ value }}" class="btn btn-sm btn-quiet" aria-pressed="{{ 'true' if p.status == value else 'false' }}">
+                        <i data-lucide="{{ icon }}"></i> {{ label }}
+                    </button>
+                    {% endfor %}
+                </form>
+            </div>
+            {% endfor %}
+
+            {% for ct in person.contributions %}
+            <div class="shopping-row">
+                <span class="shop-thumb d-grid" style="place-items: center;"><i data-lucide="users-round" class="text-muted"></i></span>
+                <div class="min-w-0 d-flex flex-column">
+                    <a href="{{ url_for('wishlist.view_wishlist', wishlist_id=ct.item.wishlist_id) }}#item-{{ ct.item.id }}" class="shopping-name">{{ ct.item.name }}</a>
+                    <span class="small text-muted">Chipping in{% if ct.amount %} {{ ct.amount|money }}{% endif %}</span>
+                </div>
+                <span class="small ms-auto {% if ct.item.purchase %}text-muted{% else %}text-danger fw-bold{% endif %}">
+                    {% if ct.item.purchase %}Bought by {{ 'you' if ct.item.purchase.purchaser_id == current_user.id else ct.item.purchase.purchaser.name }}{% else %}Not bought yet{% endif %}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endfor %}
+{% else %}
+<div class="christmas-card">
+    <div class="empty-state py-5">
+        <i data-lucide="shopping-bag"></i>
+        <h2 class="h4">Nothing here yet</h2>
+        <p>When you click <strong>I Bought This</strong> or <strong>Chip In</strong> on someone's wishlist, it shows up here so you can track wrapping and giving.</p>
+        <a href="{{ url_for('main.wishlists') }}" class="btn btn-christmas">Browse wishlists</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

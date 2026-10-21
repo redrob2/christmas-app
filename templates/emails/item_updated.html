@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #1a1a2e; margin: 0; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #fffef0 0%, #f0f8ff 100%); border-radius: 20px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #ffc107 0%, #ff8c00 100%); color: #333; padding: 30px; text-align: center; border-bottom: 4px solid #c41e3a;">
+            <h1 style="margin: 0; font-size: 28px;">⚠️ Gift Item Updated</h1>
+        </div>
+        
+        <!-- Content -->
+        <div style="padding: 30px;">
+            <p style="font-size: 18px; color: #333;">Hello <strong>{{ purchaser.name }}</strong>,</p>
+            
+            <p style="color: #555; line-height: 1.6;">
+                A wishlist item you marked as purchased has been updated by {{ recipient.name }}.
+                Please review the changes to make sure your gift still matches what they want!
+            </p>
+            
+            <div style="background: #fff; border-radius: 15px; padding: 20px; margin: 25px 0; border-left: 4px solid #ffc107;">
+                <h3 style="margin-top: 0; color: #ff8c00;">📦 Updated Item Details</h3>
+                <p style="margin-bottom: 5px;"><strong>Item:</strong> {{ item.name }}</p>
+                <p style="margin-bottom: 5px;"><strong>For:</strong> {{ recipient.name }}</p>
+                {% if item.color %}
+                <p style="margin-bottom: 5px;"><strong>Color:</strong> {{ item.color }}</p>
+                {% endif %}
+                {% if item.size %}
+                <p style="margin-bottom: 5px;"><strong>Size:</strong> {{ item.size }}</p>
+                {% endif %}
+                {% if item.url %}
+                <p style="margin-bottom: 5px;"><strong>Link:</strong> <a href="{{ item.url }}">View Product</a></p>
+                {% endif %}
+                {% if item.notes %}
+                <p style="margin-bottom: 0;"><strong>Notes:</strong> {{ item.notes }}</p>
+                {% endif %}
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{ item_url }}" 
+                   style="display: inline-block; background: linear-gradient(135deg, #c41e3a 0%, #8b0000 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">
+                    👀 View Full Details
+                </a>
+            </div>
+            
+            <p style="color: #888; font-size: 14px; text-align: center;">
+                If the changes affect your purchase, you may need to exchange or update your gift.
+            </p>
+        </div>
+        
+        <!-- Footer -->
+        <div style="background: linear-gradient(135deg, #006400 0%, #1a1a2e 100%); color: white; padding: 20px; text-align: center; border-top: 3px solid #ffd700;">
+            <p style="margin: 0; opacity: 0.9;">
+                🎄 {{ site_name }} 🎄
+            </p>
+        </div>
+    </div>
+</body>
+</html>

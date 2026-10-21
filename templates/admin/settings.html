@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i data-lucide="sliders-horizontal"></i> Application Settings</h1>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="christmas-card">
+            <div class="card-body">
+                <form method="POST" class="christmas-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <h5 class="mb-3"><i data-lucide="settings" class="text-danger"></i> General</h5>
+                    <div class="mb-3">
+                        <label for="site_name" class="form-label">
+                            Site Name
+                        </label>
+                        <input type="text" class="form-control" id="site_name" name="site_name"
+                               value="{{ settings.site_name }}" maxlength="100" required>
+                        <small class="text-muted">Shown in the menu bar, page titles and emails.</small>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="allow_signups"
+                               name="allow_signups" data-toggles="#signup-question-group" {% if settings.allow_signups %}checked{% endif %}>
+                        <label class="form-check-label" for="allow_signups">Let people request an account</label>
+                        <small class="text-muted d-block">Adds "Request an account" to the sign-in page. Nobody gets in until an admin approves them (People page).</small>
+                    </div>
+                    <div id="signup-question-group" class="border rounded-3 p-3 mb-3">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" role="switch" id="signup_question_enabled"
+                                   name="signup_question_enabled" data-toggles="#signup-question-fields"
+                                   {% if settings.signup_question_enabled %}checked{% endif %}>
+                            <label class="form-check-label fw-bold" for="signup_question_enabled">Family question - skip approval with the right answer</label>
+                        </div>
+                        <small class="text-muted d-block mb-2">Ask something only family would know. Anyone who answers it correctly can sign in straight away (admins are still told, and they still need adding to an event). Everyone else waits for approval.</small>
+                        <div id="signup-question-fields" class="d-flex flex-column gap-2">
+                            <div>
+                                <label for="signup_question" class="form-label small mb-1">Question</label>
+                                <input type="text" class="form-control" id="signup_question" name="signup_question" maxlength="200"
+                                       placeholder="e.g., What is the name of Grandma's first dog?" value="{{ settings.signup_question or '' }}">
+                            </div>
+                            <div>
+                                <label for="signup_answers" class="form-label small mb-1">Accepted answer(s)</label>
+                                <input type="text" class="form-control" id="signup_answers" name="signup_answers" maxlength="300"
+                                       autocomplete="off" placeholder="e.g., Biscuit" value="{{ settings.signup_answers or '' }}">
+                                <small class="text-muted">Any capitalization works. Separate several accepted answers with commas (e.g., <em>Biscuit, Biscuits</em>). Only admins can see this.</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <h5 class="mb-3"><i data-lucide="bell" class="text-warning"></i> Reminder Emails</h5>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="reminders_enabled"
+                               name="reminders_enabled" {% if settings.reminders_enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="reminders_enabled">Send reminder emails</label>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="empty_list_reminder_days" class="form-label">
+                                Empty-wishlist reminder
+                            </label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="empty_list_reminder_days"
+                                       name="empty_list_reminder_days" min="0" max="365"
+                                       value="{{ settings.empty_list_reminder_days }}">
+                                <span class="input-group-text">days before</span>
+                            </div>
+                            <small class="text-muted">Nudges anyone whose list is still empty.</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="countdown_reminder_days" class="form-label">
+                                Countdown reminder
+                            </label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="countdown_reminder_days"
+                                       name="countdown_reminder_days" min="0" max="365"
+                                       value="{{ settings.countdown_reminder_days }}">
+                                <span class="input-group-text">days before</span>
+                            </div>
+                            <small class="text-muted">Reminds everyone of their Secret Santa and unwrapped gifts.</small>
+                        </div>
+                    </div>
+                    <p class="small text-muted">
+                        Reminders only go out for active events that have an event date, once per person.
+                        They're sent daily at the hour set by <code>REMINDER_HOUR</code> in <code>.env</code>.
+                    </p>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-christmas">
+                            <i data-lucide="save"></i> Save Settings
+                        </button>
+                        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-christmas">
+                            <i data-lucide="x"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="christmas-card mt-4" id="backups">
+            <div class="card-header"><i data-lucide="database-backup"></i> Backups</div>
+            <div class="card-body">
+                {% if not backups.visible %}
+                <p class="text-muted small mb-0">The backup folder isn't visible to the app. After updating, run <code>docker compose up -d</code> so the web container gets the read-only <code>/app/backups</code> mount.</p>
+                {% elif not backups.db %}
+                <p class="text-danger mb-0"><i data-lucide="triangle-alert"></i> No database backups yet. Check the <code>backup</code> container: <code>docker compose logs backup</code></p>
+                {% else %}
+                <p class="mb-2 {{ 'text-success' if backups.fresh else 'text-danger' }}">
+                    <i data-lucide="{{ 'circle-check' if backups.fresh else 'triangle-alert' }}"></i>
+                    Last backup {{ backups.db.when.strftime('%b %d at %I:%M %p') }}{% if not backups.fresh %} - more than a day and a half ago; check the <code>backup</code> container{% endif %}.
+                </p>
+                <dl class="row mb-0 small">
+                    <dt class="col-sm-4">Database</dt><dd class="col-sm-8">{{ backups.db.name }} ({{ human_size(backups.db.size) }})</dd>
+                    {% if backups.files %}<dt class="col-sm-4">Photos &amp; files</dt><dd class="col-sm-8">{{ backups.files.name }} ({{ human_size(backups.files.size) }})</dd>{% endif %}
+                    <dt class="col-sm-4">Kept</dt><dd class="col-sm-8">{{ backups.count }} daily database backup{{ 's' if backups.count != 1 }}</dd>
+                </dl>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="christmas-card mt-4">
+            <div class="card-header"><i data-lucide="bell-ring"></i> Notifications</div>
+            <div class="card-body">
+                <p class="mb-1"><strong>{{ push_users }}</strong> of {{ login_users }} people have notifications on, on <strong>{{ push_devices }}</strong> device{{ 's' if push_devices != 1 }}.</p>
+                <small class="text-muted">Each person turns them on in My profile → Notifications. The <em>Who's ready</em> page of each event shows who.</small>
+            </div>
+        </div>
+
+        <div class="christmas-card mt-4">
+            <div class="card-header green-header">
+                <i data-lucide="mail"></i> Email (read-only)
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">Email is configured in the <code>.env</code> file on the server. Restart the app after changing it.</p>
+                <dl class="row mb-0 small">
+                    <dt class="col-sm-4">SMTP server</dt><dd class="col-sm-8">{{ mail_config.server }}:{{ mail_config.port }}</dd>
+                    <dt class="col-sm-4">Username</dt><dd class="col-sm-8">{{ mail_config.username or '—' }}</dd>
+                    <dt class="col-sm-4">Sends as</dt><dd class="col-sm-8">{{ mail_config.sender or '—' }}</dd>
+                    <dt class="col-sm-4">Password</dt>
+                    <dd class="col-sm-8">
+                        {% if mail_config.password_set %}<span class="text-success"><i data-lucide="check"></i> set</span>
+                        {% else %}<span class="text-danger"><i data-lucide="x"></i> not set - emails will fail</span>{% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

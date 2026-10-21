@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+
+{% block title %}Home - {{ site_name }}{% endblock %}
+
+{% block content %}
+{% if event %}
+{% set days = event.days_until() %}
+<section class="event-hero" aria-labelledby="event-title">
+    <div>
+        <p class="eyebrow">Welcome back, {{ current_user.name.split()[0] }}</p>
+        <h1 id="event-title" class="festive">{{ event.name }}{% if event.year|string not in event.name %} {{ event.year }}{% endif %}</h1>
+        <p class="when">
+            {% if event.event_date %}{{ event.event_date.strftime('%A, %B ') }}{{ event.event_date.day }}{% endif %}
+            {% if event.event_date and event.description %} · {% endif %}{{ event.description or '' }}
+        </p>
+        {% if other_events %}
+        <div class="dropdown mt-2">
+            <button class="chip dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i data-lucide="calendar-days"></i>
+                {{ 'Your main event' if is_main_choice else 'Soonest event' }} · switch
+            </button>
+            <div class="dropdown-menu dropdown-menu-christmas">
+                <h6 class="dropdown-header">Make another event your main one</h6>
+                {% for e in other_events %}
+                <form action="{{ url_for('main.set_main_event') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="event_id" value="{{ e.id }}">
+                    <button type="submit" class="dropdown-item">{{ e.name }} {{ e.year }}
+                        {% if e.event_date %}<small class="text-muted">{{ e.event_date.strftime('%b ') }}{{ e.event_date.day }}</small>{% endif %}</button>
+                </form>
+                {% endfor %}
+                {% if is_main_choice %}
+                <form action="{{ url_for('main.set_main_event') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="event_id" value="auto">
+                    <button type="submit" class="dropdown-item">Always show the soonest</button>
+                </form>
+                {% endif %}
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="{{ url_for('events.list_events') }}">All events</a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% if days is not none %}
+    <div class="countdown" aria-label="{% if days > 0 %}{{ days }} days to go{% elif days == 0 %}It's today{% else %}Event has passed{% endif %}">
+        {% if days > 0 %}
+        <span class="num">{{ days }}</span><span class="label">day{{ 's' if days != 1 }}<br>to go</span>
+        {% elif days == 0 %}
+        <span class="num">Today!</span>
+        {% else %}
+        <span class="label">Hope it was merry!</span>
+        {% endif %}
+    </div>
+    {% endif %}
+</section>
+
+{% for note in announcements %}
+<div class="announcement" data-announcement="{{ note.id }}">
+    <i data-lucide="megaphone"></i>
+    <div class="grow">
+        <p class="mb-0 preserve-lines">{{ note.body }}</p>
+        <small>{{ note.author.name.split()[0] if note.author else 'The organizer' }} · {{ note.created_at|localtime('%b %d') }}</small>
+    </div>
+    <button type="button" class="icon-btn" data-dismiss-announcement aria-label="Hide this announcement"><i data-lucide="x"></i></button>
+</div>
+{% endfor %}
+
+<div class="christmas-card push-nudge" data-push-nudge hidden>
+    <i data-lucide="bell-ring"></i>
+    <div class="text">
+        <strong>Get a ping on this device?</strong>
+        <span class="text-muted">When your Secret Santa writes, names are drawn, or a gift you're buying changes.</span>
+    </div>
+    <div class="actions">
+        <button type="button" class="btn btn-christmas-green btn-sm" data-push-nudge-go>Turn on</button>
+        <button type="button" class="btn btn-quiet btn-sm" data-push-nudge-close>Not now</button>
+    </div>
+</div>
+
+<section class="todo-grid" aria-label="Your to-dos">
+    {% if participates %}
+    {% set a = santa.assignment %}
+    <article class="christmas-card todo-card santa on-red">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>Your Secret Santa</h2>
+            <i data-lucide="venetian-mask"></i>
+        </div>
+        {% if a %}
+        <div class="d-flex align-items-center gap-3">
+            {{ avatar(a.receiver, 56, ring=True) }}
+            <div class="d-flex flex-column">
+                <span style="font-size: .9rem; color: #ffd9de;">You're buying for</span>
+                <span class="big-name">{{ a.receiver.name.split()[0] }}</span>
+            </div>
+        </div>
+        {% if event.budget %}
+        {% set pct = [((santa.spent / event.budget) * 100)|int, 100]|min %}
+        <div class="d-flex flex-column gap-1">
+            <div class="d-flex justify-content-between" style="font-size: .9rem;">
+                <span>{{ santa.spent|money or '$0' }} of {{ event.budget|money }} budget</span>
+                <span>{{ santa.gift_count }} gift{{ 's' if santa.gift_count != 1 }} marked</span>
+            </div>
+            <div class="meter on-red {% if santa.spent > event.budget %}over{% endif %}" role="progressbar" aria-label="Budget used"
+                 aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ pct }}%;"></span></div>
+        </div>
+        {% endif %}
+        <div class="actions">
+            {% if santa.receiver_wishlist %}
+            <a href="{{ url_for('wishlist.view_wishlist', wishlist_id=santa.receiver_wishlist.id) }}" class="btn btn-cream">Open {{ a.receiver.name.split()[0] }}'s list</a>
+            {% endif %}
+            <a href="{{ url_for('secretsanta.my_assignment', event_id=event.id) }}" class="btn btn-outline-light">
+                Messages {% if unread %}<span class="count-pill">{{ unread }}</span>{% endif %}</a>
+        </div>
+        {% else %}
+        <p class="mb-0">Names haven't been drawn yet - you'll get an email (and a notification, if they're on) when they are.</p>
+        <div class="actions">
+            <a href="{{ url_for('secretsanta.my_assignment', event_id=event.id) }}" class="btn btn-outline-light">
+                Secret Santa page {% if unread %}<span class="count-pill">{{ unread }}</span>{% endif %}</a>
+        </div>
+        {% endif %}
+    </article>
+    {% endif %}
+
+    {% if my_list %}
+    <article class="christmas-card todo-card">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>Your wishlist</h2>
+            <span class="text-muted" style="font-size: .9rem;">{{ my_items|length }} item{{ 's' if my_items|length != 1 }}</span>
+        </div>
+        {% if my_items %}
+        {% set with_photos = my_items|selectattr('image')|list %}
+        <div class="thumb-row" aria-hidden="true">
+            {% for item in with_photos[:3] %}
+            <img src="{{ url_for('profile.uploaded_file', filename=item.image) }}" alt="">
+            {% endfor %}
+            {% for i in range(3 - (with_photos[:3]|length)) %}<div><i data-lucide="gift"></i></div>{% endfor %}
+            <div>{% if my_items|length > 3 %}+{{ my_items|length - 3 }}{% else %}<i data-lucide="plus"></i>{% endif %}</div>
+        </div>
+        <p class="text-muted mb-0" style="font-size: .95rem;">Your family can see these. What's been bought stays a surprise.</p>
+        {% else %}
+        <p class="text-muted mb-0">Your list is empty - add a few ideas so your family knows what you'd love.</p>
+        {% endif %}
+        <div class="actions">
+            {% if event.lists_locked() %}<span class="text-muted"><i data-lucide="lock"></i> Lists are locked</span>
+            {% else %}<a href="{{ url_for('wishlist.add_item', wishlist_id=my_list.id) }}" class="btn btn-christmas-green"><i data-lucide="plus"></i> Add an item</a>{% endif %}
+            <a href="{{ url_for('wishlist.view_wishlist', wishlist_id=my_list.id) }}" class="btn btn-quiet">View my list</a>
+        </div>
+    </article>
+    {% endif %}
+
+    {% for wl in managed_lists %}
+    {% set count = wl.items.count() %}
+    <article class="christmas-card todo-card">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>{{ wl.owner.name.split()[0] }}'s wishlist</h2>
+            <span class="text-muted" style="font-size: .9rem;">{{ count }} item{{ 's' if count != 1 }}</span>
+        </div>
+        <p class="text-muted mb-0" style="font-size: .95rem;">You look after this list - {{ wl.owner.name.split()[0] }} doesn't have a login.</p>
+        <div class="actions">
+            {% if not event.lists_locked() %}<a href="{{ url_for('wishlist.add_item', wishlist_id=wl.id) }}" class="btn btn-christmas-green"><i data-lucide="plus"></i> Add an item</a>{% endif %}
+            <a href="{{ url_for('wishlist.view_wishlist', wishlist_id=wl.id) }}" class="btn btn-quiet">View list</a>
+        </div>
+    </article>
+    {% endfor %}
+
+    <article class="christmas-card todo-card">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>Your shopping</h2>
+            {% if shopping.bought or shopping.pledges %}<span class="text-muted" style="font-size: .9rem;">{{ shopping.total|money or '$0' }}</span>{% endif %}
+        </div>
+        <div class="stat-trio">
+            <div><strong>{{ shopping.bought }}</strong><span>Bought</span></div>
+            <div><strong>{{ shopping.wrapped }}</strong><span>Wrapped</span></div>
+            <div><strong>{{ shopping.given }}</strong><span>Given</span></div>
+        </div>
+        <p class="text-muted mb-0" style="font-size: .95rem;">
+            {% if shopping.to_wrap %}{{ shopping.to_wrap }} gift{{ 's' if shopping.to_wrap != 1 }} still to wrap.
+            {% elif shopping.bought %}Everything you've bought is wrapped.
+            {% else %}Nothing bought yet - pick something from a wishlist below.{% endif %}
+        </p>
+        <div class="actions">
+            <a href="{{ url_for('wishlist.shopping_list') }}" class="btn btn-quiet">Open checklist</a>
+        </div>
+    </article>
+</section>
+
+<section aria-labelledby="family-title">
+    <div class="section-bar">
+        <h2 id="family-title" class="section-title">Family wishlists</h2>
+        {% set need = family|selectattr('needs_gifts')|list|length %}
+        <a href="{{ url_for('events.view_event', event_id=event.id) }}" style="font-weight: 700;">
+            {% if need %}{{ need }} still need{{ 's' if need == 1 }} a gift{% else %}See everyone{% endif %}</a>
+    </div>
+    {% if family %}
+    <div class="person-grid">
+        {% for p in family %}
+        <a href="{{ url_for('wishlist.view_wishlist', wishlist_id=p.wishlist.id) }}" class="person-card {% if p.is_pick %}pick{% endif %}">
+            {{ avatar(p.user, 48) }}
+            <span class="info">
+                <strong>{{ p.user.name }}</strong>
+                <span class="sub">{% if p.item_count %}{{ p.item_count }} item{{ 's' if p.item_count != 1 }} · {{ p.available }} left{% else %}No items yet{% endif %}</span>
+                {% if p.is_pick %}<span class="flag">Your Secret Santa pick</span>
+                {% elif p.needs_gifts and p.item_count %}<span class="flag need">Nothing bought yet</span>{% endif %}
+            </span>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="christmas-card"><div class="empty-state">
+        <i data-lucide="users"></i>
+        <p>It's just you so far - everyone else's lists will show up here once they're added.</p>
+    </div></div>
+    {% endif %}
+</section>
+
+
+{% else %}
+<section class="event-hero">
+    <div>
+        <p class="eyebrow">Welcome, {{ current_user.name.split()[0] }}</p>
+        <h1 class="festive">{{ site_name }}</h1>
+    </div>
+</section>
+<div class="christmas-card">
+    <div class="empty-state py-5">
+        <i data-lucide="snowflake"></i>
+        <h2 class="h4">No events yet</h2>
+        <p>Once you're added to an event you can make your wishlist and see everyone else's.</p>
+        {% if current_user.is_admin %}
+        <a href="{{ url_for('admin.add_event') }}" class="btn btn-christmas"><i data-lucide="calendar-plus"></i> Create an event</a>
+        {% else %}
+        <p class="mb-0">Ask {{ site_name }}'s organizer to add you to this year's event.</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

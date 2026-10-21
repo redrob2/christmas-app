@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+
+{% block title %}Who's ready - {{ event.name }} - {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div class="page-header mb-0">
+        <p class="eyebrow">Admin · Who's ready</p>
+        <h1 class="festive">{{ event.name }}{% if event.year|string not in event.name %} {{ event.year }}{% endif %}</h1>
+        <p>{% if event.event_date %}{{ event.event_date.strftime('%A, %B ') }}{{ event.event_date.day }}{% set d = event.days_until() %}{% if d is not none and d >= 0 %} · {{ d }} day{{ 's' if d != 1 }} to go{% endif %}{% endif %}
+           {% if event.lists_lock_date %} · lists lock {{ event.lists_lock_date.strftime('%b ') }}{{ event.lists_lock_date.day }}{% endif %}</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{{ url_for('admin.export_lists', event_id=event.id) }}" class="btn btn-outline-light"><i data-lucide="download"></i> Download lists</a>
+        <a href="{{ url_for('admin.activity', event_id=event.id) }}" class="btn btn-outline-light"><i data-lucide="history"></i> Activity</a>
+        <a href="{{ url_for('admin.manage_event', event_id=event.id) }}" class="btn btn-outline-light"><i data-lucide="settings"></i> Setup</a>
+    </div>
+</div>
+
+<section class="ready-stats mb-4" aria-label="Summary">
+    <div class="christmas-card"><strong>{{ summary.joined }}/{{ summary.logins }}</strong><span>signed in · {{ summary.online }} online now</span></div>
+    <div class="christmas-card"><strong>{{ summary.with_items }}/{{ summary.people }}</strong><span>lists started</span></div>
+    {% if event.secret_santa_enabled and summary.drawn %}
+    <div class="christmas-card"><strong>{{ summary.seen }}/{{ summary.drawn }}</strong><span>saw their Santa name</span></div>
+    {% endif %}
+    <div class="christmas-card"><strong>{{ summary.notifications }}/{{ summary.logins }}</strong><span>notifications on</span></div>
+    <div class="christmas-card {% if summary.needs_gifts %}warn{% endif %}"><strong>{{ summary.needs_gifts }}</strong><span>with nothing bought yet</span></div>
+</section>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="christmas-card h-100">
+            <div class="card-body d-flex flex-column gap-3">
+                <h2 class="h5 mb-0"><i data-lucide="bell-ring"></i> Nudge people</h2>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <strong>Empty lists</strong>
+                        <small class="d-block text-muted">{% if summary.empty %}{{ summary.empty|map(attribute='name')|join(', ') }}{% else %}Everyone who has signed in has added something.{% endif %}</small>
+                    </div>
+                    {% if summary.empty %}
+                    <form action="{{ url_for('admin.nudge', event_id=event.id) }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="kind" value="empty">
+                        <button type="submit" class="btn btn-christmas-green btn-sm" data-confirm="Send an email and notification to {{ summary.empty|length }} {{ 'person' if summary.empty|length == 1 else 'people' }}?">
+                            Nudge {{ summary.empty|length }}</button>
+                    </form>
+                    {% endif %}
+                </div>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <strong>Haven't signed in yet</strong>
+                        <small class="d-block text-muted">{% if summary.not_joined %}{{ summary.not_joined|map(attribute='name')|join(', ') }}{% else %}Everyone has signed in.{% endif %}</small>
+                    </div>
+                    {% if summary.not_joined %}
+                    <form action="{{ url_for('admin.nudge', event_id=event.id) }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="kind" value="invites">
+                        <button type="submit" class="btn btn-quiet btn-sm" data-confirm="Email {{ summary.not_joined|length }} {{ 'person' if summary.not_joined|length == 1 else 'people' }} a new welcome email with a fresh temporary password?">
+                            Resend {{ summary.not_joined|length }} invite{{ 's' if summary.not_joined|length != 1 }}</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6" id="announce">
+        <div class="christmas-card h-100">
+            <div class="card-body d-flex flex-column gap-3">
+                <h2 class="h5 mb-0"><i data-lucide="megaphone"></i> Announcement</h2>
+                <form action="{{ url_for('admin.announce', event_id=event.id) }}" method="POST" class="christmas-form d-flex flex-column gap-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <label for="announce-body" class="visually-hidden">Message for everyone</label>
+                    <textarea id="announce-body" name="body" class="form-control" rows="2" maxlength="1000" required
+                              placeholder="e.g., Gift exchange moved to 3pm - bring a dish to share!"></textarea>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <div class="form-check m-0">
+                            <input class="form-check-input" type="checkbox" name="email" id="announce-email" checked>
+                            <label class="form-check-label small" for="announce-email">Also email everyone</label>
+                        </div>
+                        <button type="submit" class="btn btn-christmas btn-sm"><i data-lucide="send"></i> Post to everyone</button>
+                    </div>
+                    <small class="text-muted">Shows on everyone's Home page and sends a notification to those who have them on.</small>
+                </form>
+                {% for note in announcements %}
+                <div class="announce-row">
+                    <div>
+                        <p class="mb-0 preserve-lines">{{ note.body }}</p>
+                        <small class="text-muted">{{ note.author.name if note.author else 'Someone' }} · {{ note.created_at|localtime }}</small>
+                    </div>
+                    <form action="{{ url_for('admin.delete_announcement', announcement_id=note.id) }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-link text-muted" aria-label="Remove announcement"
+                                data-confirm="Remove this announcement from Home?"><i data-lucide="trash-2"></i></button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="christmas-card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table christmas-table table-stack ready-table">
+                <thead>
+                    <tr>
+                        <th>Person</th>
+                        <th>Last seen</th>
+                        <th>List</th>
+                        <th title="Counts only - never who bought what. Hidden for your own list.">Gifts bought</th>
+                        {% if event.secret_santa_enabled %}<th>Secret Santa</th>{% endif %}
+                        <th>Notifications</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rows %}
+                    <tr>
+                        <td data-label="Person">
+                            <span class="d-flex align-items-center gap-2">{{ avatar(r.user, 32) }}
+                                <span><strong>{{ r.user.name }}</strong>
+                                {% if r.user.is_managed %}<small class="d-block text-muted">Looked after by {{ r.user.managed_by.name if r.user.managed_by else 'nobody yet' }}</small>{% endif %}</span></span>
+                        </td>
+                        <td data-label="Last seen">
+                            {% set seen = r.user.last_seen_at or r.user.last_login %}
+                            {% if r.user.is_managed %}<span class="text-muted">No login</span>
+                            {% elif r.user.is_online or r.own %}<span class="online-dot" aria-hidden="true"></span><strong>Online now</strong>
+                            {% elif seen %}<span class="ok-dot"></span>{{ seen|seen_ago }}
+                            {% else %}<span class="badge bg-warning text-dark">Not yet</span>
+                                <form action="{{ url_for('admin.resend_invite', user_id=r.user.id) }}" method="POST" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-link btn-sm p-0 ms-1" data-confirm="Send {{ r.user.name }} a new welcome email (with a fresh temporary password)?">Resend invite</button>
+                                </form>
+                            {% endif %}
+                        </td>
+                        <td data-label="List">
+                            {% if r.wishlist %}<a href="{{ url_for('wishlist.view_wishlist', wishlist_id=r.wishlist.id) }}">{{ r.item_count }} item{{ 's' if r.item_count != 1 }}</a>{% endif %}
+                            {% if not r.item_count %}<span class="badge text-bg-secondary ms-1">Empty</span>{% endif %}
+                        </td>
+                        <td data-label="Gifts bought">
+                            {% if r.own %}<span class="text-muted" title="Your own list stays a surprise">Hidden</span>
+                            {% elif r.needs_gifts and r.item_count %}<span class="badge badge-christmas">None yet</span>
+                            {% elif r.item_count %}{{ r.bought }} bought
+                            {% else %}<span class="text-muted">-</span>{% endif %}
+                        </td>
+                        {% if event.secret_santa_enabled %}
+                        <td data-label="Secret Santa">
+                            {% if not r.in_draw %}<span class="text-muted">Not in the draw</span>
+                            {% elif not r.drawn %}<span class="text-muted">Not drawn yet</span>
+                            {% elif r.seen %}<span class="ok-dot"></span>Seen their name
+                            {% elif event.assignments_sent %}<span class="badge bg-warning text-dark">Not opened</span>
+                            {% else %}<span class="text-muted">Not sent yet</span>{% endif %}
+                        </td>
+                        {% endif %}
+                        <td data-label="Notifications">
+                            {% if r.user.is_managed %}<span class="text-muted">-</span>
+                            {% elif r.devices %}<span class="ok-dot"></span>On ({{ r.devices }} device{{ 's' if r.devices != 1 }})
+                            {% else %}<span class="text-muted">Off</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-muted mb-0"><i data-lucide="eye-off"></i> Gift counts never show who bought what, and your own list is hidden so it stays a surprise. Secret Santa only shows whether someone looked - never who they drew.</p>
+    </div>
+</div>
+{% endblock %}

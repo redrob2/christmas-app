@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Create Event - {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i data-lucide="calendar-plus"></i> Create Christmas Event</h1>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="christmas-card">
+            <div class="card-body">
+                <form method="POST" class="christmas-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">
+                            Event Name
+                        </label>
+                        <input type="text" class="form-control" id="name" name="name"
+                               placeholder="e.g., Christmas {{ current_year }}" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="year" class="form-label">
+                                Year
+                            </label>
+                            <input type="number" class="form-control" id="year" name="year"
+                                   value="{{ current_year }}" min="2020" max="2099" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="event_date" class="form-label">
+                                Event Date
+                            </label>
+                            <input type="date" class="form-control" id="event_date" name="event_date"
+                                   value="{{ current_year }}-12-25">
+                        </div>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="secret_santa_enabled"
+                               name="secret_santa_enabled" data-toggles="#budget-group" checked>
+                        <label class="form-check-label" for="secret_santa_enabled">
+                            <i data-lucide="venetian-mask"></i> Include a Secret Santa draw
+                        </label>
+                        <small class="d-block text-muted">Turn off for events without a gift exchange (birthdays, get-togethers).</small>
+                    </div>
+                    <div class="mb-3" id="budget-group">
+                        <label for="budget" class="form-label">
+                            Secret Santa Budget (Optional)
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="text" inputmode="decimal" class="form-control" id="budget" name="budget"
+                                   placeholder="e.g., 50" value="">
+                        </div>
+                        <small class="text-muted">Shown to every Secret Santa.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">
+                            Description (Optional)
+                        </label>
+                        <textarea class="form-control" id="description" name="description"
+                                  rows="3" placeholder="Add any details about this event..."></textarea>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-christmas">
+                            <i data-lucide="save"></i> Create Event
+                        </button>
+                        <a href="{{ url_for('admin.events_list') }}" class="btn btn-outline-christmas">
+                            <i data-lucide="x"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
