@@ -446,38 +446,84 @@ AI_INSTRUCTIONS = (
     '"image_url" (main product photo URL if present, else null). Never guess - use null when unsure.')
 
 
-_last_ai_error = {'status': None}
+_last_ai_error = {'status': None, 'detail': ''}
+RETRY_STATUSES = (429, 500, 502, 503, 504)   # busy / overloaded: worth one more try
 
 
 def _gemini(payload, timeout=25):
-    """POST to Gemini; returns the JSON or None (reason kept in _last_ai_error)"""
-    _last_ai_error['status'] = None
+    """POST to Gemini; returns the JSON or None (reason kept in _last_ai_error).
+    Retries once when Google is busy or the connection hiccups, and asks for brief
+    thinking - these are quick extraction jobs, and long thinking only adds delay."""
+    import time
+    _last_ai_error.update(status=None, detail='')
     key = current_app.config.get('GEMINI_API_KEY')
     if not key:
         _last_ai_error['status'] = 'no-key'
         return None
     model = current_app.config['GEMINI_TEXT_MODEL']
-    try:
-        r = requests.post(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
-                          headers={'x-goog-api-key': key, 'Content-Type': 'application/json'},
-                          json=payload, timeout=timeout)
-        if r.status_code != 200:
-            _last_ai_error['status'] = r.status_code
-            print(f"[link-preview] Gemini HTTP {r.status_code}: {r.text[:300]}", flush=True)
-            return None
-        return r.json()
-    except requests.exceptions.RequestException as e:
-        _last_ai_error['status'] = 'network'
-        print(f"[link-preview] Gemini error: {e}", flush=True)
-        return None
+    url = f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
+    payload = dict(payload)
+    config = dict(payload.get('generationConfig') or {})
+    config.setdefault('thinkingConfig', {'thinkingLevel': 'low'})
+    payload['generationConfig'] = config
+
+    for attempt in (1, 2):
+        try:
+            r = requests.post(url, headers={'x-goog-api-key': key, 'Content-Type': 'application/json'},
+                              json=payload, timeout=timeout)
+        except requests.exceptions.Timeout as e:
+            _last_ai_error.update(status='timeout', detail=str(e)[:200])
+        except requests.exceptions.ConnectionError as e:
+            text = str(e)
+            dns = any(s in text for s in ('NameResolution', 'getaddrinfo', 'Name or service not known',
+                                          'Temporary failure in name resolution', 'nodename nor servname'))
+            _last_ai_error.update(status='dns' if dns else 'connect', detail=text[:200])
+        except requests.exceptions.RequestException as e:
+            _last_ai_error.update(status='connect', detail=str(e)[:200])
+        else:
+            if r.status_code == 200:
+                return r.json()
+            if r.status_code == 400 and 'thinking' in r.text.lower() and 'thinkingConfig' in config:
+                # an older model (GEMINI_TEXT_MODEL) that doesn't take thinkingLevel
+                config.pop('thinkingConfig')
+                continue
+            try:
+                message = r.json().get('error', {}).get('message', '')
+            except ValueError:
+                message = r.text
+            _last_ai_error.update(status=r.status_code, detail=message[:200])
+            if r.status_code not in RETRY_STATUSES:
+                break
+        print(f"[link-preview] Gemini attempt {attempt} failed: {_last_ai_error['status']} "
+              f"{_last_ai_error['detail']}", flush=True)
+        if attempt == 1:
+            time.sleep(2)
+    print(f"[link-preview] Gemini gave up: {_last_ai_error['status']} {_last_ai_error['detail']}", flush=True)
+    return None
 
 
 def ai_unavailable_message():
-    status = _last_ai_error['status']
+    """What went wrong, in words that point at the fix"""
+    status, detail = _last_ai_error['status'], _last_ai_error.get('detail') or ''
     if status == 'no-key':
-        return 'Reading pictures needs a Gemini API key (GEMINI_API_KEY in .env).'
-    if status in (402, 429):
-        return 'The AI service is out of credit or busy right now (check the Gemini account).'
+        return 'Reading pictures needs a Gemini API key (GEMINI_API_KEY in the settings).'
+    if status == 402 or (status == 429 and 'quota' in detail.lower()):
+        return 'The Gemini account is out of credit or over its limit - check it at aistudio.google.com.'
+    if status in (429, 500, 502, 503, 504):
+        return "Google's AI is overloaded right now - please try again in a minute."
+    if status in (401, 403):
+        return 'Google refused the Gemini API key - check GEMINI_API_KEY in the settings.'
+    if status == 404:
+        return 'The Gemini model in the settings no longer exists - update GEMINI_TEXT_MODEL.'
+    if status == 400:
+        return f"Google couldn't use that request ({detail[:120] or 'bad request'})."
+    if status == 'timeout':
+        return 'The AI took too long to answer - please try again.'
+    if status == 'dns':
+        return ("This server couldn't look up Google's address (a DNS problem) - check the server's "
+                "DNS settings, or an ad blocker like Pi-hole blocking generativelanguage.googleapis.com.")
+    if status == 'connect':
+        return "This server couldn't connect to Google's AI service - check the server's internet connection."
     return "The AI service couldn't be reached right now."
 
 
@@ -592,7 +638,7 @@ def read_screenshot(data):
             {'inline_data': {'mime_type': 'image/jpeg', 'data': base64.b64encode(buf.getvalue()).decode()}},
         ]}],
         'generationConfig': {'temperature': 0, 'responseMimeType': 'application/json'},
-    }, timeout=40)
+    }, timeout=60)
     if not result:
         raise LinkError(ai_unavailable_message())
 
