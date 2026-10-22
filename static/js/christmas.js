@@ -618,8 +618,44 @@ function setupLogoutUnsubscribe() {
     });
 }
 
+// ---------- Easter egg: ask for cash, get a brief money rain ----------
+// (also forced with ?moneyrain on any page)
+function makeMoneyRain() {
+    if (prefersReducedMotion) return;
+    const rand = (min, max) => min + Math.random() * (max - min);
+    const sky = document.createElement('div');
+    sky.className = 'money-rain';
+    sky.setAttribute('aria-hidden', 'true');
+    const bills = ['💵', '💵', '💵', '💸', '💰', '🪙'];
+    const count = Math.round(Math.min(46, Math.max(22, window.innerWidth / 28)));
+    for (let i = 0; i < count; i++) {
+        const bill = document.createElement('div');
+        bill.className = 'money-bill';
+        bill.style.cssText = [
+            `--x:${rand(-2, 98).toFixed(1)}%`,
+            `--fall:${rand(2.6, 4.4).toFixed(2)}s`,
+            `--delay:${rand(0, 2.2).toFixed(2)}s`,
+            `--drift:${rand(-90, 90).toFixed(0)}px`,
+        ].join(';');
+        const inner = document.createElement('span');
+        inner.textContent = bills[Math.floor(Math.random() * bills.length)];
+        inner.style.setProperty('--size', `${rand(1.4, 2.6).toFixed(2)}rem`);
+        inner.style.setProperty('--sway', `${rand(15, 45).toFixed(0)}px`);
+        inner.style.setProperty('--spin', `${rand(25, 110).toFixed(0)}deg`);
+        inner.style.setProperty('--sway-time', `${rand(0.9, 1.8).toFixed(2)}s`);
+        bill.appendChild(inner);
+        sky.appendChild(bill);
+    }
+    document.body.appendChild(sky);
+    setTimeout(() => sky.classList.add('done'), 6200);
+    setTimeout(() => sky.remove(), 7200);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     registerServiceWorker();
+    if (document.querySelector('meta[name="money-rain"]') || /[?&]moneyrain\b/.test(location.search)) {
+        makeMoneyRain();
+    }
     if (!document.querySelector('meta[name="push-key"]')) return;  // signed-out pages
     setupInstallTip();
     watchForUpdates();

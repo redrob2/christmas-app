@@ -950,3 +950,26 @@ a:hover { color: var(--bs-link-hover-color); }
     color: var(--ink);
     font-weight: 700;
 }
+
+/* ---------- Easter egg: money rain (asking for cash) ---------- */
+.money-rain { position: fixed; inset: 0; pointer-events: none; z-index: 1070; overflow: hidden; transition: opacity 0.9s ease; }
+.money-rain.done { opacity: 0; }
+.money-bill {
+    position: absolute;
+    top: -12vh;
+    left: var(--x);
+    animation: money-fall var(--fall) cubic-bezier(0.35, 0.1, 0.55, 1) var(--delay) both;
+}
+.money-bill > span {
+    display: block;
+    font-size: var(--size, 2rem);
+    line-height: 1;
+    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.35));
+    animation: money-sway var(--sway-time, 1.4s) ease-in-out infinite alternate;
+}
+@keyframes money-fall { from { transform: translate(0, 0); } to { transform: translate(var(--drift, 0px), 124vh); } }
+@keyframes money-sway {
+    from { transform: translateX(calc(var(--sway, 30px) * -1)) rotate(calc(var(--spin, 60deg) * -1)); }
+    to   { transform: translateX(var(--sway, 30px)) rotate(var(--spin, 60deg)); }
+}
+@media (prefers-reduced-motion: reduce) { .money-rain { display: none; } }

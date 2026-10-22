@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify, session
 from flask_login import login_required, current_user
 from datetime import datetime
 from collections import OrderedDict
@@ -9,7 +9,7 @@ from app import db, mail
 from app.models import (WishList, WishListItem, ItemPurchase, EventParticipant, GiftContribution,
                         SecretSantaAssignment, ChristmasEvent, PURCHASE_STATUSES)
 from app.push import link_path, send_push
-from app.utils import get_external_url, parse_money, safe_url
+from app.utils import get_external_url, is_cash_request, parse_money, safe_url
 from flask_mail import Message
 
 wishlist_bp = Blueprint('wishlist', __name__)
@@ -205,7 +205,11 @@ def add_item(wishlist_id):
         db.session.add(item)
         db.session.commit()
 
-        flash(f'"{item.name}" added to your wishlist!', 'success')
+        if is_cash_request(item.name):
+            session['money_rain'] = True
+            flash(f'"{item.name}" added to your wishlist! 💸 Bold choice. Small bills preferred.', 'success')
+        else:
+            flash(f'"{item.name}" added to your wishlist!', 'success')
         if request.form.get('add_another'):
             return redirect(url_for('wishlist.add_item', wishlist_id=wishlist_id))
         return redirect(url_for('wishlist.view_wishlist', wishlist_id=wishlist_id))
@@ -324,7 +328,11 @@ def edit_item(item_id):
                       f'"{item.name}" was updated - take a look at what changed.',
                       url=link_path(item_url), tag=f'item-{item.id}')
 
-        flash('Item updated!', 'success')
+        if is_cash_request(item.name) and not is_cash_request(old_name):
+            session['money_rain'] = True
+            flash('Item updated! 💸 Ah, the classic.', 'success')
+        else:
+            flash('Item updated!', 'success')
         return redirect(url_for('wishlist.view_wishlist', wishlist_id=wishlist.id))
 
     return render_template('wishlist/edit_item.html', item=item, wishlist=wishlist)

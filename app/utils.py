@@ -65,3 +65,33 @@ def safe_url(value):
     if len(value) > 500:  # long tracking-laden links (the column holds 500 characters)
         value = parsed._replace(query='', fragment='').geturl()
     return value if len(value) <= 500 else None
+
+
+# Easter egg: asking for anything money-related (cash, gold bars, gift cards...) makes it rain money
+
+# Money words that count anywhere in the item name ("Cash for a car", "Gold bars", "Amazon gift card")
+_MONEY_ANYWHERE = re.compile(
+    r"\b(?:cash|money|monies|moolah|dinero|dollars?|euros?|pounds sterling|"
+    r"gift ?cards?|gift ?certificates?|e-?gift|"
+    r"venmo|paypal|zelle|cash ?app|bitcoins?|crypto(?:currency)?|ethereum|dogecoin|"
+    r"gold (?:bars?|bullion|coins?|ingots?|nuggets?)|bars? of gold|bullion|ingots?|krugerrands?|"
+    r"silver (?:bars?|coins?|bullion)|pot of gold|"
+    r"savings bonds?|lottery tickets?|scratch[- ]?offs?|piggy bank|"
+    r"stocks|stock in|shares of|index funds?)\b|\$\s*\d|\$\$|\d+\s*grand\b")
+
+# Slang that's only money when it's the whole request ("Dough" yes, "Cookie dough" no)
+_MONEY_SLANG = re.compile(
+    r"^(?:(?:some|a little|a lot of|lots of|more|extra|just|plain|cold|hard|good old|straight|real|crisp|actual)\s+)*"
+    r"(?:dough|bucks|benjamins|cheddar|bread|bank|bones|clams|loot|paper|greenbacks|coin|bling|\$)"
+    r"(?:\s+(?:please|pls|plz|only))*$")
+
+
+def is_cash_request(name):
+    """True for money-related wishes: 'Cash', 'Gold bars', 'Amazon gift card', 'Venmo me',
+    '$$$', 'Dough'. False for 'Cookie dough', 'Cashmere sweater', 'Cheddar cheese board'."""
+    text = (name or '').lower()
+    if _MONEY_ANYWHERE.search(text):
+        return True
+    words = re.sub(r"[^a-z$ ]", ' ', text)
+    words = re.sub(r'\s+', ' ', words).strip()
+    return bool(words) and bool(_MONEY_SLANG.match(words))

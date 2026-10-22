@@ -6,6 +6,7 @@
     {% if current_user.is_authenticated %}
     <meta name="push-key" content="{{ push_public_key() }}">
     <meta name="unread-count" content="{{ unread_santa_messages or 0 }}">
+    {% if session.pop('money_rain', False) %}<meta name="money-rain" content="1">{% endif %}
     {% endif %}
     {% block extra_css %}{% endblock %}
 </head>
