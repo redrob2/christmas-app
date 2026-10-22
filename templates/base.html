@@ -46,7 +46,7 @@
                 <div class="dropdown">
                     <button type="button" class="account-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu for {{ current_user.name }}">
                         {% from "_macros.html" import avatar %}
-                        {{ avatar(current_user, 36) }}
+                        {{ avatar(current_user, 36, zoom=False) }}
                         {% if pending_signups %}<span class="count-pill" title="Account requests waiting for approval">{{ pending_signups }}</span>{% endif %}
                         <span class="d-none d-sm-inline">{{ current_user.name.split()[0] }}</span>
                     </button>

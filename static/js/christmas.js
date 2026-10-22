@@ -44,21 +44,33 @@ function setTheme(theme) {
 }
 
 // ---------- Image lightbox (any element with data-lightbox="url") ----------
-function openLightbox(src, caption) {
+// Gift photos and people's character pictures. Closes with the X, a tap anywhere,
+// Esc, or the phone's Back button.
+let lightboxOpener = null;
+
+function openLightbox(src, caption, opener) {
     const box = document.getElementById('imageLightbox');
-    if (!box) return;
+    if (!box || box.style.display === 'flex') return;
     box.querySelector('img').src = src;
+    box.querySelector('img').alt = caption || '';
     box.querySelector('.lightbox-caption').textContent = caption || '';
     box.style.display = 'flex';
     document.body.style.overflow = 'hidden';
+    lightboxOpener = opener || null;
+    box.querySelector('.lightbox-close').focus({ preventScroll: true });
+    // so the phone's Back button closes the picture instead of leaving the page
+    try { history.pushState({ lightbox: true }, ''); } catch (e) { /* ignore */ }
 }
 
-function closeLightbox() {
+function closeLightbox(fromHistory) {
     const box = document.getElementById('imageLightbox');
-    if (box && box.style.display === 'flex') {
-        box.style.display = 'none';
-        document.body.style.overflow = '';
-    }
+    if (!box || box.style.display !== 'flex') return;
+    box.style.display = 'none';
+    box.querySelector('img').src = '';
+    document.body.style.overflow = '';
+    if (!fromHistory && history.state && history.state.lightbox) history.back();
+    if (lightboxOpener) lightboxOpener.focus({ preventScroll: true });
+    lightboxOpener = null;
 }
 
 // ---------- Snowfall: every flake gets its own size, shape, speed, sway and drift ----------
@@ -162,16 +174,28 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Lightbox
-    document.querySelectorAll('[data-lightbox]').forEach(el => {
-        el.addEventListener('click', () => openLightbox(el.dataset.lightbox, el.dataset.caption));
+    // Lightbox. Captured before anything else, so a picture inside a link (like the
+    // family cards on Home) opens big instead of following the link.
+    document.addEventListener('click', e => {
+        const el = e.target.closest('[data-lightbox]');
+        if (!el) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openLightbox(el.dataset.lightbox, el.dataset.caption, el);
+    }, true);
+    document.addEventListener('keydown', e => {
+        const el = e.target.closest && e.target.closest('[data-lightbox][role="button"]');
+        if (el && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            openLightbox(el.dataset.lightbox, el.dataset.caption, el);
+        }
     });
     const lightbox = document.getElementById('imageLightbox');
     if (lightbox) {
-        lightbox.addEventListener('click', e => {
-            if (e.target === lightbox || e.target.classList.contains('lightbox-close')) closeLightbox();
-        });
+        // any tap closes it - the picture, the background or the X
+        lightbox.addEventListener('click', () => closeLightbox());
     }
+    window.addEventListener('popstate', () => closeLightbox(true));
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
 
     // Drag-and-drop image pickers (see image_dropzone in templates/_macros.html)

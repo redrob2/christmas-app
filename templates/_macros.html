@@ -1,9 +1,13 @@
 {# A person's avatar: their Rudolph photo when they have one, otherwise
    coloured initials (the colour is fixed per person). #}
-{% macro avatar(user, size=44, ring=False) %}
+{% macro avatar(user, size=44, ring=False, zoom=True) %}
 {%- if user.has_ai_photo() -%}
-<img src="{{ url_for('profile.uploaded_file', filename=user.profile_photo_icon) }}" alt=""
-     class="avatar{% if ring %} ring{% endif %}" style="--avatar-size: {{ size }}px;">
+{#- zoom: tap/click shows the full-size character picture (christmas.js lightbox) -#}
+{%- set full = url_for('profile.uploaded_file', filename=user.profile_photo_ai or user.profile_photo_icon) -%}
+<img src="{{ url_for('profile.uploaded_file', filename=user.profile_photo_icon) }}"
+     class="avatar{% if ring %} ring{% endif %}{% if zoom %} zoomable{% endif %}" style="--avatar-size: {{ size }}px;"
+     {%- if zoom %} alt="{{ user.name }}" data-lightbox="{{ full }}" data-caption="{{ user.name }}" role="button" tabindex="0"
+     aria-label="See {{ user.name }}'s picture bigger"{% else %} alt=""{% endif %}>
 {%- else -%}
 {%- set parts = (user.name or '?').split() -%}
 <span class="avatar c{{ user.id % 6 }}{% if ring %} ring{% endif %}" style="--avatar-size: {{ size }}px;" aria-hidden="true">
