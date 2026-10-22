@@ -75,7 +75,8 @@ class Config:
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
     # Gemini AI API Key for photo transformation and gift poems
-    GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
+    # (stray spaces or quotes from pasting the key make Google reject it)
+    GEMINI_API_KEY = (os.environ.get('GEMINI_API_KEY') or '').strip().strip('"' + "'").strip() or None
     # Model names - override in .env when Google retires a model
     GEMINI_IMAGE_MODEL = os.environ.get('GEMINI_IMAGE_MODEL') or 'gemini-3-pro-image'
     GEMINI_IMAGE_FALLBACK_MODEL = os.environ.get('GEMINI_IMAGE_FALLBACK_MODEL') or 'gemini-3.1-flash-image'

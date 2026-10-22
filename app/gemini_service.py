@@ -19,8 +19,8 @@ RUDOLPH_PROMPT = """Turn the person in the image into a character that might hav
 
 
 def get_gemini_api_key():
-    """Get the Gemini API key from environment or config"""
-    key = os.environ.get('GEMINI_API_KEY') or current_app.config.get('GEMINI_API_KEY')
+    """The Gemini API key from the settings (already cleaned of stray spaces and quotes)"""
+    key = current_app.config.get('GEMINI_API_KEY')
     if not key:
         print("[GEMINI] ERROR: No API key found!")
     return key
@@ -412,7 +412,7 @@ About recipient: {recipient_about or 'No additional information provided'}"""
             if response.status_code in (402, 429):
                 return None, ('The Gemini account is out of credit or over its limit right now - '
                               'ask the organizer to check it, or try again later.')
-            if response.status_code in (401, 403):
+            if response.status_code in (401, 403) or 'api key not valid' in response.text.lower():
                 return None, 'The Gemini API key was refused - ask the organizer to check it.'
             if response.status_code == 404:
                 return None, 'The Gemini model in the settings no longer exists - ask the organizer to update GEMINI_TEXT_MODEL.'

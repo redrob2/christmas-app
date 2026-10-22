@@ -511,8 +511,9 @@ def ai_unavailable_message():
         return 'The Gemini account is out of credit or over its limit - check it at aistudio.google.com.'
     if status in (429, 500, 502, 503, 504):
         return "Google's AI is overloaded right now - please try again in a minute."
-    if status in (401, 403):
-        return 'Google refused the Gemini API key - check GEMINI_API_KEY in the settings.'
+    if status in (401, 403) or (status == 400 and 'api key' in detail.lower()):
+        return ('Google refused the Gemini API key - check GEMINI_API_KEY in the settings '
+                '(paste it again with no spaces or quotes, or make a new one at aistudio.google.com/apikey).')
     if status == 404:
         return 'The Gemini model in the settings no longer exists - update GEMINI_TEXT_MODEL.'
     if status == 400:
