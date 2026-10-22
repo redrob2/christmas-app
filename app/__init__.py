@@ -246,6 +246,11 @@ def create_app(config_name='default'):
         from app.push import ensure_vapid_keys
         ensure_vapid_keys()
 
+        # ($0 contributions saved by older versions meant "not chipping in")
+        from app.models import GiftContribution
+        if GiftContribution.query.filter(GiftContribution.amount == 0).delete():
+            db.session.commit()
+
         # Gunicorn runs this once (--preload) and then forks workers; drop the
         # pooled connections so each worker opens its own
         db.session.remove()

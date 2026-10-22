@@ -502,6 +502,15 @@ def contribute(item_id):
 
     amount = parse_money(request.form.get('amount'))
     contribution = GiftContribution.query.filter_by(item_id=item.id, user_id=current_user.id).first()
+    # $0 means "not chipping in" (a blank amount still means "count me in, amount to be decided")
+    if amount is not None and amount == 0:
+        if contribution:
+            db.session.delete(contribution)
+            db.session.commit()
+            flash('You are no longer chipping in on this gift.', 'info')
+        else:
+            flash('Enter an amount, or leave it blank to count yourself in.', 'warning')
+        return redirect(back)
     if contribution:
         contribution.amount = amount
         flash('Your contribution was updated.', 'success')
@@ -615,7 +624,7 @@ def generate_poem(item_id):
     # Generate the poem using Gemini
     from app.gemini_service import generate_gift_poem
 
-    poem = generate_gift_poem(
+    poem, error = generate_gift_poem(
         item_name=item.name,
         item_color=item.color or '',
         item_notes=item.notes or '',
@@ -635,4 +644,4 @@ def generate_poem(item_id):
             'can_regenerate': item.purchase.can_generate_poem()
         })
     else:
-        return jsonify({'error': 'Failed to generate poem. Please try again.'}), 500
+        return jsonify({'error': error or 'Failed to generate poem. Please try again.'}), 502

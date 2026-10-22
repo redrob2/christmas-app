@@ -145,7 +145,8 @@
                 {% endif %}
                 <span class="text-muted">
                     {% for c in item_data.contributions %}{{ 'You' if c.user_id == current_user.id else c.user.name }}{% if c.amount %} ({{ c.amount|money }}){% endif %}{{ ', ' if not loop.last }}{% endfor %}
-                    {{ 'is' if item_data.contributions|length == 1 else 'are' }} in</span>
+                    {# "You are in" / "Ann is in" / "You, Ann are in" #}
+                    {{ 'are' if item_data.contributions|length > 1 or item_data.contributions[0].user_id == current_user.id else 'is' }} in</span>
             </div>
             {% endif %}
 
