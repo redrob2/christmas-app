@@ -557,6 +557,7 @@ def settings():
 
     if request.method == 'POST':
         app_settings.site_name = request.form.get('site_name', '').strip() or 'Family Christmas'
+        app_settings.app_name = request.form.get('app_name', '').strip()[:30] or 'Wishlist'
         app_settings.allow_signups = request.form.get('allow_signups') == 'on'
         app_settings.signup_question = request.form.get('signup_question', '').strip()[:200] or None
         app_settings.signup_answers = request.form.get('signup_answers', '').strip()[:300] or None

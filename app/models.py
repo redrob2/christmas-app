@@ -392,6 +392,8 @@ class AppSettings(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     site_name = db.Column(db.String(100), default='Family Christmas')
+    # Name under the icon when installed on a phone's home screen (keep it short)
+    app_name = db.Column(db.String(30), default='Wishlist', nullable=False)
     # Reminder emails (sent daily by the "scheduler" service)
     reminders_enabled = db.Column(db.Boolean, default=True, nullable=False)
     empty_list_reminder_days = db.Column(db.Integer, default=21, nullable=False)

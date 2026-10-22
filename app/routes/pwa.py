@@ -10,7 +10,7 @@ from flask_login import current_user, login_required
 from app.event_data import current_event, user_events
 from app.models import WishList
 from app.push import remove_subscription, save_subscription, send_push
-from app.utils import get_site_name
+from app.utils import get_app_name, get_site_name
 
 pwa_bp = Blueprint('pwa', __name__)
 
@@ -56,8 +56,9 @@ def manifest():
                                               'sizes': size, 'type': 'image/png', 'purpose': purpose}
     data = {
         'id': '/',
-        'name': name,
-        'short_name': short_name(name),
+        # what the phone shows under the icon and in its app list
+        'name': get_app_name(),
+        'short_name': short_name(get_app_name()),
         'description': 'Family wishlists, gift shopping and Secret Santa.',
         'start_url': url_for('main.dashboard'),
         'scope': '/',

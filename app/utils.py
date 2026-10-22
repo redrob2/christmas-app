@@ -28,6 +28,13 @@ def get_external_url(endpoint, **values):
     return f"{scheme}://{server_name}{path}"
 
 
+def get_app_name():
+    """Home-screen name of the installed app (Admin -> Settings)"""
+    from app.models import AppSettings
+    settings = AppSettings.query.first()
+    return (settings.app_name if settings and settings.app_name else 'Wishlist')
+
+
 def get_site_name():
     """Site name from Admin -> Settings"""
     from app.models import AppSettings

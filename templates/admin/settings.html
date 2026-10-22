@@ -22,6 +22,14 @@
                                value="{{ settings.site_name }}" maxlength="100" required>
                         <small class="text-muted">Shown in the menu bar, page titles and emails.</small>
                     </div>
+                    <div class="mb-3">
+                        <label for="app_name" class="form-label">Phone app name</label>
+                        <input type="text" class="form-control" id="app_name" name="app_name" maxlength="30"
+                               value="{{ settings.app_name or 'Wishlist' }}" style="max-width: 260px;">
+                        <small class="text-muted">The name under the icon when someone adds the site to their iPhone or Android home screen.
+                            Keep it short (about 12 letters fit). Phones that already installed it: Android updates by itself within a day or so;
+                            on iPhone, remove the icon and add it to the Home Screen again.</small>
+                    </div>
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input" type="checkbox" role="switch" id="allow_signups"
                                name="allow_signups" data-toggles="#signup-question-group" {% if settings.allow_signups %}checked{% endif %}>

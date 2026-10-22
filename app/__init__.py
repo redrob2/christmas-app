@@ -103,7 +103,7 @@ def create_app(config_name='default'):
     def utility_processor():
         from flask import has_request_context
         from flask_login import current_user
-        from app.utils import get_external_url, get_site_name
+        from app.utils import get_app_name, get_external_url, get_site_name
         from app.push import public_key
         unread = pending = 0
         # (emails rendered by the reminder scheduler have no request/user)
@@ -113,7 +113,7 @@ def create_app(config_name='default'):
             if current_user.is_admin:
                 from app.models import User
                 pending = User.query.filter_by(is_approved=False).count()
-        return dict(external_url=get_external_url, site_name=get_site_name(),
+        return dict(external_url=get_external_url, site_name=get_site_name(), app_name=get_app_name(),
                     unread_santa_messages=unread, pending_signups=pending, push_public_key=public_key,
                     signups_open=signups_open,
                     app_version=app.config['APP_VERSION'])
