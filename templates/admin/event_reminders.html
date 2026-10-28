@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Reminders - {{ event.name }} - {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div class="page-header mb-0">
+        <p class="eyebrow">Admin · Reminders</p>
+        <h1 class="festive">{{ event.name }}{% if event.year|string not in event.name %} {{ event.year }}{% endif %}</h1>
+        <p>Write your own reminder - by email, notification or both - to everyone or chosen people, now or later.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{{ url_for('admin.event_status', event_id=event.id) }}" class="btn btn-outline-light"><i data-lucide="list-checks"></i> Who's ready</a>
+        <a href="{{ url_for('admin.manage_event', event_id=event.id) }}" class="btn btn-outline-light"><i data-lucide="settings"></i> Setup</a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="christmas-card">
+            <div class="card-body">
+                <h2 class="h5 mb-3"><i data-lucide="pencil-line"></i> New reminder</h2>
+                <form method="POST" class="christmas-form d-flex flex-column gap-3" id="reminder-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div>
+                        <label for="subject" class="form-label">Subject</label>
+                        <input type="text" class="form-control" id="subject" name="subject" maxlength="200" required
+                               placeholder="e.g., Gifts under the tree by Saturday!" value="{{ form.subject }}">
+                    </div>
+                    <div>
+                        <label for="body" class="form-label">Message</label>
+                        <textarea class="form-control" id="body" name="body" rows="5" maxlength="5000" required
+                                  placeholder="Hi {first_name}! Just {days} until {event} - remember to wrap your Secret Santa gift.">{{ form.body }}</textarea>
+                        <small class="text-muted">Personalize with {{ placeholders }} - each person sees their own name, the event name and how many days are left.</small>
+                    </div>
+
+                    <fieldset class="m-0 p-0 border-0">
+                        <legend class="form-label fs-6 mb-1">Send as</legend>
+                        <div class="d-flex flex-wrap gap-3">
+                            <div class="form-check m-0">
+                                <input class="form-check-input" type="checkbox" id="send_email" name="send_email" {% if form.send_email %}checked{% endif %}>
+                                <label class="form-check-label" for="send_email"><i data-lucide="mail"></i> Email</label>
+                            </div>
+                            <div class="form-check m-0">
+                                <input class="form-check-input" type="checkbox" id="send_push" name="send_push" {% if form.send_push %}checked{% endif %}>
+                                <label class="form-check-label" for="send_push"><i data-lucide="bell-ring"></i> Notification <small class="text-muted">(people who turned them on)</small></label>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="m-0 p-0 border-0">
+                        <legend class="form-label fs-6 mb-1">Send to</legend>
+                        <div class="d-flex flex-wrap gap-3 mb-2">
+                            <div class="form-check m-0">
+                                <input class="form-check-input" type="radio" name="audience" id="aud-everyone" value="everyone" {% if form.everyone %}checked{% endif %}>
+                                <label class="form-check-label" for="aud-everyone">Everyone in the event ({{ people|length }})</label>
+                            </div>
+                            <div class="form-check m-0">
+                                <input class="form-check-input" type="radio" name="audience" id="aud-chosen" value="chosen" {% if not form.everyone %}checked{% endif %}>
+                                <label class="form-check-label" for="aud-chosen">Only the people I pick</label>
+                            </div>
+                        </div>
+                        <div id="chosen-people" class="pick-people">
+                            {% for u in people %}
+                            <label class="pick-person">
+                                <input type="checkbox" name="recipients" value="{{ u.id }}" {% if u.id in form.chosen %}checked{% endif %}>
+                                <span>{{ u.name }}</span>
+                            </label>
+                            {% else %}
+                            <p class="text-muted small mb-0">Nobody with a login is in this event yet.</p>
+                            {% endfor %}
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="m-0 p-0 border-0">
+                        <legend class="form-label fs-6 mb-1">When</legend>
+                        <div class="d-flex flex-wrap align-items-center gap-3">
+                            <div class="form-check m-0">
+                                <input class="form-check-input" type="radio" name="when" id="when-now" value="now" {% if form.when != 'later' %}checked{% endif %}>
+                                <label class="form-check-label" for="when-now">Right now</label>
+                            </div>
+                            <div class="form-check m-0">
+                                <input class="form-check-input" type="radio" name="when" id="when-later" value="later" {% if form.when == 'later' %}checked{% endif %}>
+                                <label class="form-check-label" for="when-later">At a set time</label>
+                            </div>
+                            <div id="send-at-group">
+                                <input type="datetime-local" class="form-control form-control-sm" id="send_at" name="send_at"
+                                       min="{{ now_local }}" value="{{ form.send_at or default_time }}" aria-label="Date and time to send">
+                            </div>
+                        </div>
+                        <small class="text-muted">Times are in the server's time zone. Scheduled reminders go out within a minute of the time you pick.</small>
+                    </fieldset>
+
+                    <div><button type="submit" class="btn btn-christmas" id="reminder-submit"><i data-lucide="send"></i> <span>Send now</span></button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5 d-flex flex-column gap-4">
+        <div class="christmas-card">
+            <div class="card-header"><i data-lucide="alarm-clock"></i> Scheduled ({{ upcoming|length }})</div>
+            <div class="card-body d-flex flex-column gap-3">
+                {% for r in upcoming %}
+                <div class="reminder-row">
+                    <div>
+                        <strong>{{ r.subject }}</strong>
+                        <small class="d-block text-muted">
+                            {{ r.send_at|localtime('%a %b %d, %I:%M %p') }} ·
+                            {{ 'Everyone' if r.everyone else chosen_names[r.id] }} ·
+                            {{ ['email' if r.send_email, 'notification' if r.send_push]|select|join(' + ') }}
+                        </small>
+                    </div>
+                    <div class="d-flex gap-1">
+                        <form action="{{ url_for('admin.reminder_action', reminder_id=r.id, action='send-now') }}" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-quiet" data-confirm="Send '{{ r.subject }}' right now?">Send now</button>
+                        </form>
+                        <form action="{{ url_for('admin.reminder_action', reminder_id=r.id, action='cancel') }}" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" data-confirm="Cancel '{{ r.subject }}'?">Cancel</button>
+                        </form>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">Nothing scheduled.</p>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="christmas-card">
+            <div class="card-header"><i data-lucide="history"></i> Sent</div>
+            <div class="card-body d-flex flex-column gap-3">
+                {% for r in history %}
+                <div class="reminder-row">
+                    <div>
+                        <strong>{{ r.subject }}</strong>
+                        <small class="d-block text-muted">
+                            {% if r.status == 'cancelled' %}<span class="badge text-bg-secondary">Cancelled</span>
+                            {% elif r.status == 'failed' %}<span class="badge bg-danger">Couldn't be delivered</span> {{ r.sent_at|localtime if r.sent_at }}
+                            {% elif r.status == 'sending' %}<span class="badge bg-warning text-dark">Sending...</span>
+                            {% else %}{{ r.sent_at|localtime }} · {{ r.people }} {{ 'person' if r.people == 1 else 'people' }}
+                                ({{ r.emailed }} email{{ 's' if r.emailed != 1 }}, {{ r.pushed }} notification{{ 's' if r.pushed != 1 }}){% endif %}
+                        </small>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No reminders sent yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// The button says what will happen; the people / time pickers show only when needed
+(function () {
+    const form = document.getElementById('reminder-form');
+    const label = document.querySelector('#reminder-submit span');
+    const sync = () => {
+        const later = document.getElementById('when-later').checked;
+        label.textContent = later ? 'Schedule it' : 'Send now';
+        document.getElementById('send-at-group').classList.toggle('d-none', !later);
+        document.getElementById('chosen-people').classList.toggle('d-none', !document.getElementById('aud-chosen').checked);
+    };
+    form.addEventListener('change', sync);
+    sync();
+})();
+</script>
+{% endblock %}

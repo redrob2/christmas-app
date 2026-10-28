@@ -119,18 +119,24 @@ def register_cli(app):
     @app.cli.command('reminder-scheduler')
     @click.option('--hour', default=9, show_default=True, help='Local hour of day to send reminders.')
     def reminder_scheduler_command(hour):
-        """Run forever, sending due reminders once a day."""
-        print(f"[reminders] scheduler started; runs daily at {hour:02d}:00", flush=True)
+        """Run forever: every minute, send admins' scheduled reminders that are due;
+        once a day from HOUR on, the automatic reminders (each person gets each once)."""
+        from app.admin_tools import send_due_reminders
+        print(f"[reminders] scheduler started; automatic reminders daily from {hour:02d}:00, "
+              "scheduled reminders checked every minute", flush=True)
+        last_daily = None
         while True:
+            now = datetime.now()
             try:
-                send_reminders()
+                sent = send_due_reminders()
+                if sent:
+                    print(f"[reminders] sent {sent} scheduled reminder(s)", flush=True)
+                if now.hour >= hour and last_daily != now.date():
+                    send_reminders()
+                    last_daily = now.date()
             except Exception as e:
                 db.session.rollback()
                 print(f"[reminders] run failed: {e}", flush=True)
             finally:
                 db.session.remove()
-            now = datetime.now()
-            next_run = now.replace(hour=hour, minute=0, second=0, microsecond=0)
-            if next_run <= now:
-                next_run += timedelta(days=1)
-            time.sleep((next_run - now).total_seconds())
+            time.sleep(60 - datetime.now().second)   # wake at the top of each minute

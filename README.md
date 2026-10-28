@@ -12,6 +12,7 @@ self-hosted in one Docker container, made for Unraid.
 - **Shopping checklist.** Bought → Wrapped → Given, with a running total.
 - **Phone app and notifications.** It installs to the home screen on iPhone and Android, and sends pings for Santa messages, name draws, gift changes and reminders.
 - **Organizer tools:**
+- **Custom reminders** (each event's **Reminders** page): write your own subject and message, send it by email and/or notification to everyone in the event or people you pick, right away or at a date and time you choose. Personalize it with {first_name}, {name}, {event} and {days}. Scheduled ones can be sent early or cancelled, and a history shows how many people each reached.
   - a "Who's ready" board and nudges
   - announcements and an activity log
   - a wishlist lock date

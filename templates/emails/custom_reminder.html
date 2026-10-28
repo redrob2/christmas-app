@@ -1,0 +1,8 @@
+{% extends "emails/_layout.html" %}
+{% block heading %}🔔 {{ subject }}{% endblock %}
+{% block content %}
+<p style="font-size: 18px; color: #333;">Hello <strong>{{ user.name.split()[0] }}</strong>,</p>
+<div style="color: #333; font-size: 16px; white-space: pre-line;">{{ body }}</div>
+<p style="color: #888; font-size: 13px; margin-top: 24px;">A reminder about <strong>{{ event.name }}</strong>.</p>
+{% endblock %}
+{% block button %}🎄 Open {{ site_name }}{% endblock %}

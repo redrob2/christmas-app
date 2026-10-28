@@ -49,6 +49,8 @@ ACTIVITY_LABELS = {
     'settings': ('sliders-horizontal', 'Settings changed'),
     'backup_exported': ('download', 'Backup downloaded'), 'backup_restored': ('upload', 'Backup restored'),
     'signup_requested': ('user-round-search', 'Account requested'),
+    'reminder_sent': ('send', 'Reminder sent'), 'reminder_scheduled': ('alarm-clock', 'Reminder scheduled'),
+    'reminder_cancelled': ('alarm-clock-off', 'Reminder cancelled'),
     'signup_auto': ('badge-check', 'Joined (family question)'),
     'signup_approved': ('user-check', 'Account approved'), 'signup_declined': ('user-x', 'Account declined'),
 }
@@ -459,3 +461,83 @@ def human_size(num):
         if num < 1024 or unit == 'GB':
             return f'{num:.0f} {unit}' if unit == 'B' else f'{num:.1f} {unit}'
         num /= 1024
+
+
+
+# ---------- Reminders written by admins ----------
+
+PLACEHOLDERS = '{first_name}, {name}, {event}, {days}'
+
+
+def reminder_recipients(reminder):
+    """People who get it: everyone with a login in the event, or the chosen ones who still are"""
+    participants = [p.user for p in EventParticipant.query.filter_by(event_id=reminder.event_id)
+                    if not p.user.is_managed]
+    if reminder.everyone:
+        return participants
+    chosen = set(reminder.chosen_ids())
+    return [u for u in participants if u.id in chosen]
+
+
+def _fill(text, user, event):
+    days = event.days_until()
+    days_text = ('today' if days == 0 else f'{days} day{"s" if days != 1 else ""}') if days is not None and days >= 0 else ''
+    return (text.replace('{first_name}', user.name.split()[0]).replace('{name}', user.name)
+                .replace('{event}', event.name).replace('{days}', days_text))
+
+
+def send_custom_reminder(reminder):
+    """Send it now. Claims it first, so it can never go out twice (web + scheduler).
+    Returns True if this call sent it."""
+    from app.models import CustomReminder
+    claimed = (CustomReminder.query.filter(CustomReminder.id == reminder.id,
+                                           CustomReminder.status == 'scheduled')
+               .update({'status': 'sending'}, synchronize_session=False))
+    db.session.commit()
+    if not claimed:
+        return False
+    db.session.refresh(reminder)
+    event = reminder.event
+    link = get_external_url('main.dashboard')
+    emailed = pushed = 0
+    people = reminder_recipients(reminder)
+    for user in people:
+        subject, body = _fill(reminder.subject, user, event), _fill(reminder.body, user, event)
+        if reminder.send_email:
+            try:
+                msg = Message(subject, recipients=[user.email])
+                msg.html = render_template('emails/custom_reminder.html', event=event, user=user,
+                                           subject=subject, body=body, link=link)
+                mail.send(msg)
+                emailed += 1
+            except Exception as e:
+                print(f"[custom-reminder] email to {user.email} failed: {e}", flush=True)
+        if reminder.send_push:
+            preview = body if len(body) <= 140 else body[:137] + '...'
+            pushed += bool(send_push(user, subject, preview, url=link_path(link), tag=f'custom-{reminder.id}'))
+    reminder.status = 'sent' if (emailed or pushed or not people) else 'failed'
+    reminder.sent_at = datetime.utcnow()
+    reminder.emailed, reminder.pushed, reminder.people = emailed, pushed, len(people)
+    db.session.commit()
+    log_activity('reminder_sent', f'"{reminder.subject}" to {len(people)} '
+                 f'{"person" if len(people) == 1 else "people"} ({emailed} emails, {pushed} notifications)',
+                 event=event, actor=reminder.author)
+    return True
+
+
+def send_due_reminders(now=None):
+    """Called every minute by the scheduler: send whatever has come due."""
+    from app.models import CustomReminder
+    now = now or datetime.utcnow()
+    due = (CustomReminder.query.filter(CustomReminder.status == 'scheduled', CustomReminder.send_at <= now)
+           .order_by(CustomReminder.send_at).all())
+    sent = 0
+    for reminder in due:
+        try:
+            sent += send_custom_reminder(reminder)
+        except Exception as e:
+            db.session.rollback()
+            reminder.status = 'failed'
+            db.session.commit()
+            print(f"[custom-reminder] {reminder.id} failed: {e}", flush=True)
+    return sent

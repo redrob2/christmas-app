@@ -2,11 +2,11 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 import os
 from flask_login import login_required, current_user
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from app import db, mail
 from app.models import (User, ChristmasEvent, EventParticipant, ExclusionPair, AppSettings, WishList,
                         ItemPurchase, SecretSantaAssignment, PasswordResetToken, GiftContribution,
-                        SantaMessage, ReminderLog, PushSubscription, Announcement, ActivityLog)
+                        SantaMessage, ReminderLog, PushSubscription, Announcement, ActivityLog, CustomReminder)
 from app.utils import admin_required, get_external_url, get_site_name, parse_money
 from app.admin_tools import (ACTIVITY_LABELS, DrawError, add_to_draw, approve_signup, approved_users,
                              backup_status, copy_event,
@@ -233,6 +233,7 @@ def delete_user(user_id):
     PasswordResetToken.query.filter_by(user_id=user.id).delete(synchronize_session=False)
     PushSubscription.query.filter_by(user_id=user.id).delete(synchronize_session=False)
     Announcement.query.filter_by(author_id=user.id).update({'author_id': None}, synchronize_session=False)
+    CustomReminder.query.filter_by(author_id=user.id).update({'author_id': None}, synchronize_session=False)
     # Lists they looked after go to an admin (the person deleting them)
     User.query.filter_by(managed_by_id=user.id).update({'managed_by_id': current_user.id}, synchronize_session=False)
     for photo in (user.profile_photo, user.profile_photo_ai, user.profile_photo_icon):
@@ -781,3 +782,97 @@ def save_upload_to_temp(upload):
     with os.fdopen(handle, 'wb') as f:
         upload.save(f)
     return path
+
+
+# ==================== REMINDERS WRITTEN BY ADMINS ====================
+
+@admin_bp.route('/events/<int:event_id>/reminders', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def event_reminders(event_id):
+    from datetime import timezone
+    from app.admin_tools import PLACEHOLDERS, reminder_recipients, send_custom_reminder
+    event = ChristmasEvent.query.get_or_404(event_id)
+    people = sorted([p.user for p in EventParticipant.query.filter_by(event_id=event.id) if not p.user.is_managed],
+                    key=lambda u: u.name.lower())
+    form = {'subject': '', 'body': '', 'send_email': True, 'send_push': True, 'everyone': True,
+            'chosen': [], 'when': 'now', 'send_at': ''}
+
+    if request.method == 'POST':
+        form = {'subject': request.form.get('subject', '').strip()[:200],
+                'body': request.form.get('body', '').strip()[:5000],
+                'send_email': request.form.get('send_email') == 'on',
+                'send_push': request.form.get('send_push') == 'on',
+                'everyone': request.form.get('audience', 'everyone') == 'everyone',
+                'chosen': [i for i in request.form.getlist('recipients', type=int) if i in {u.id for u in people}],
+                'when': request.form.get('when', 'now'),
+                'send_at': request.form.get('send_at', '')}
+        error, send_at = None, None
+        if not form['subject'] or not form['body']:
+            error = 'Write a subject and a message.'
+        elif not (form['send_email'] or form['send_push']):
+            error = 'Choose email, notification, or both.'
+        elif not form['everyone'] and not form['chosen']:
+            error = 'Pick at least one person.'
+        elif form['when'] == 'later':
+            try:
+                # typed in the server's local time zone (TZ) -> stored as UTC
+                local = datetime.strptime(form['send_at'], '%Y-%m-%dT%H:%M')
+                send_at = local.astimezone(timezone.utc).replace(tzinfo=None)
+            except ValueError:
+                error = 'Pick a date and time to send it.'
+            else:
+                if send_at <= datetime.utcnow():
+                    error = 'That time has already passed - pick a time in the future, or send it now.'
+        if error:
+            flash(error, 'danger')
+        else:
+            reminder = CustomReminder(
+                event_id=event.id, author_id=current_user.id, subject=form['subject'], body=form['body'],
+                send_email=form['send_email'], send_push=form['send_push'], everyone=form['everyone'],
+                recipient_ids=None if form['everyone'] else ','.join(str(i) for i in form['chosen']),
+                send_at=send_at or datetime.utcnow(), status='scheduled')
+            db.session.add(reminder)
+            db.session.commit()
+            if form['when'] == 'later':
+                count = len(reminder_recipients(reminder))
+                log_activity('reminder_scheduled', f'"{reminder.subject}" for {send_at.replace(tzinfo=timezone.utc).astimezone():%b %d, %I:%M %p} '
+                             f'to {count} {"person" if count == 1 else "people"}', event=event)
+                flash(f'Scheduled "{reminder.subject}".', 'success')
+            else:
+                send_custom_reminder(reminder)
+                flash(f'Sent "{reminder.subject}" to {reminder.people} {"person" if reminder.people == 1 else "people"} '
+                      f'({reminder.emailed} emails, {reminder.pushed} notifications).',
+                      'success' if reminder.status == 'sent' else 'warning')
+            return redirect(url_for('admin.event_reminders', event_id=event.id))
+
+    reminders = event.custom_reminders.order_by(CustomReminder.created_at.desc()).all()
+    upcoming = sorted([r for r in reminders if r.status == 'scheduled'], key=lambda r: r.send_at)
+    history = [r for r in reminders if r.status != 'scheduled']
+    names = {u.id: u.name for u in people}
+    chosen_names = {r.id: ', '.join(names[i] for i in r.chosen_ids() if i in names) or 'nobody' for r in upcoming}
+    default_time = (datetime.now() + timedelta(days=1)).replace(hour=9, minute=0).strftime('%Y-%m-%dT%H:%M')
+    return render_template('admin/event_reminders.html', event=event, people=people, form=form,
+                           upcoming=upcoming, history=history, chosen_names=chosen_names, placeholders=PLACEHOLDERS,
+                           default_time=default_time, now_local=datetime.now().strftime('%Y-%m-%dT%H:%M'))
+
+
+@admin_bp.route('/reminders/<int:reminder_id>/<action>', methods=['POST'])
+@login_required
+@admin_required
+def reminder_action(reminder_id, action):
+    from app.admin_tools import send_custom_reminder
+    reminder = CustomReminder.query.get_or_404(reminder_id)
+    back = redirect(url_for('admin.event_reminders', event_id=reminder.event_id))
+    if reminder.status != 'scheduled':
+        flash('That reminder has already been sent or cancelled.', 'info')
+        return back
+    if action == 'cancel':
+        reminder.status = 'cancelled'
+        db.session.commit()
+        log_activity('reminder_cancelled', f'"{reminder.subject}"', event=reminder.event)
+        flash(f'Cancelled "{reminder.subject}".', 'success')
+    elif action == 'send-now':
+        send_custom_reminder(reminder)
+        flash(f'Sent "{reminder.subject}" to {reminder.people} {"person" if reminder.people == 1 else "people"}.', 'success')
+    return back

@@ -994,3 +994,10 @@ a:hover { color: var(--bs-link-hover-color); }
     to   { transform: translateX(var(--sway, 30px)) rotate(var(--spin, 60deg)); }
 }
 @media (prefers-reduced-motion: reduce) { .money-rain { display: none; } }
+
+/* ---------- Admin reminders ---------- */
+.pick-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.pick-person { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(31, 36, 51, 0.05); cursor: pointer; }
+.pick-person input { accent-color: var(--pine); width: 1.1em; height: 1.1em; }
+.reminder-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(31, 36, 51, 0.1); }
+.reminder-row:last-child { border-bottom: 0; padding-bottom: 0; }

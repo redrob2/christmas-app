@@ -152,6 +152,8 @@ class ChristmasEvent(db.Model):
     reminder_logs = db.relationship('ReminderLog', lazy='dynamic', cascade='all, delete-orphan')
     announcements = db.relationship('Announcement', back_populates='event', lazy='dynamic',
                                     order_by='Announcement.created_at.desc()', cascade='all, delete-orphan')
+    custom_reminders = db.relationship('CustomReminder', back_populates='event', lazy='dynamic',
+                                       cascade='all, delete-orphan')
 
     def lists_locked(self, today=None):
         today = today or datetime.now().date()
@@ -497,3 +499,32 @@ class LoginFailure(db.Model):
     ip = db.Column(db.String(64), index=True)
     email = db.Column(db.String(120), index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+
+class CustomReminder(db.Model):
+    """A reminder an admin writes for an event: email and/or notification, to everyone
+    in the event or chosen people, sent right away or at a set time (by the scheduler)."""
+    __tablename__ = 'custom_reminders'
+
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('christmas_events.id'), nullable=False, index=True)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    subject = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    send_email = db.Column(db.Boolean, default=True, nullable=False)
+    send_push = db.Column(db.Boolean, default=True, nullable=False)
+    everyone = db.Column(db.Boolean, default=True, nullable=False)
+    recipient_ids = db.Column(db.Text)            # comma-separated user ids when not everyone
+    send_at = db.Column(db.DateTime, index=True)   # UTC; when it should go out
+    status = db.Column(db.String(20), default='scheduled', nullable=False, index=True)  # scheduled/sending/sent/cancelled/failed
+    sent_at = db.Column(db.DateTime)
+    emailed = db.Column(db.Integer, default=0, nullable=False)
+    pushed = db.Column(db.Integer, default=0, nullable=False)
+    people = db.Column(db.Integer, default=0, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    event = db.relationship('ChristmasEvent', back_populates='custom_reminders')
+    author = db.relationship('User')
+
+    def chosen_ids(self):
+        return [int(x) for x in (self.recipient_ids or '').split(',') if x.strip().isdigit()]
