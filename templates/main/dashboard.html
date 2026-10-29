@@ -56,6 +56,17 @@
     {% endif %}
 </section>
 
+{% if is_demo %}
+<div class="announcement demo-note">
+    <i data-lucide="gamepad-2"></i>
+    <div>
+        <strong>This is a practice event - play around!</strong>
+        <p class="mb-0">Add things to your list, look at other lists, try marking a gift as bought. Nothing here is real.
+            {% if not other_events %}Once an organizer adds you to the family's real event, this one disappears.{% endif %}</p>
+    </div>
+</div>
+{% endif %}
+
 {% for note in announcements %}
 <div class="announcement" data-announcement="{{ note.id }}">
     <i data-lucide="megaphone"></i>

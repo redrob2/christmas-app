@@ -21,6 +21,7 @@ self-hosted in one Docker container, made for Unraid.
   - "online now"
 - **Accounts:**
   - Admins add people, or people request an account. An optional family question lets relatives skip the approval wait.
+  - An optional practice event gives new people somewhere to play around. They leave it automatically once they're added to a real event.
   - Lists for people without a login, like young kids, are looked after by a parent.
 - **Light and dark themes**, with gentle snow.
 
@@ -62,7 +63,7 @@ docker compose logs wishlist     # shows the setup code on first start
 | `SQLITE_JOURNAL_MODE` | `delete` is safe anywhere. `wal` is faster but needs a real disk path such as `/mnt/cache/appdata/...` (not `/mnt/user/...`). | `delete` |
 | `SECRET_KEY` | Signs sign-in cookies. Generated automatically and kept in appdata if you don't set it. | generated |
 
-Everything else is set in the app itself: **Admin → Settings**. That covers the site name, sign-ups and the family question, and reminders.
+Everything else is set in the app itself: **Admin → Settings**. That covers the site name, sign-ups, the family question, the practice event, and reminders.
 
 ## Phone app & https
 

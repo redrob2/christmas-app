@@ -8,7 +8,7 @@ from app.models import (User, ChristmasEvent, EventParticipant, ExclusionPair, A
                         ItemPurchase, SecretSantaAssignment, PasswordResetToken, GiftContribution,
                         SantaMessage, ReminderLog, PushSubscription, Announcement, ActivityLog, CustomReminder)
 from app.utils import admin_required, get_external_url, get_site_name, parse_money
-from app.admin_tools import (ACTIVITY_LABELS, DrawError, add_to_draw, approve_signup, approved_users,
+from app.admin_tools import (ACTIVITY_LABELS, DrawError, add_to_draw, approve_signup, approved_users, demo_event, leave_demo,
                              backup_status, copy_event,
                              export_lists_csv, generate_temp_password, human_size, log_activity,
                              managed_placeholder_email, nudge_empty_lists, post_announcement, readiness,
@@ -289,7 +289,8 @@ def reset_user_password(user_id):
 @admin_required
 def events_list():
     events = ChristmasEvent.query.order_by(ChristmasEvent.year.desc(), ChristmasEvent.name).all()
-    return render_template('admin/events.html', events=events)
+    demo = demo_event()
+    return render_template('admin/events.html', events=events, demo_id=demo.id if demo else None)
 
 
 @admin_bp.route('/events/<int:event_id>/copy', methods=['POST'])
@@ -417,8 +418,9 @@ def add_participant(event_id):
 
     db.session.commit()
     log_activity('participant_added', user.name, event=event)
+    left = leave_demo([user.id], event)
 
-    flash(f'{user.name} added to the event!', 'success')
+    flash(f'{user.name} added to the event!' + (' They have left the practice event.' if left else ''), 'success')
     return redirect(url_for('admin.manage_event', event_id=event_id, step='people'))
 
 
@@ -429,7 +431,7 @@ def add_all_participants(event_id):
     """Add every user who isn't in the event yet (each gets a wishlist)"""
     event = ChristmasEvent.query.get_or_404(event_id)
     existing = {p.user_id for p in EventParticipant.query.filter_by(event_id=event_id)}
-    added = 0
+    added = []
     for user in approved_users().all():
         if user.id in existing:
             continue
@@ -437,10 +439,12 @@ def add_all_participants(event_id):
                                         participates_in_secret_santa=not user.is_managed))
         if not WishList.query.filter_by(event_id=event_id, owner_id=user.id).first():
             db.session.add(WishList(event_id=event_id, owner_id=user.id))
-        added += 1
+        added.append(user.id)
     db.session.commit()
     if added:
-        log_activity('participant_added', f'{added} people (Add everyone)', event=event)
+        log_activity('participant_added', f'{len(added)} people (Add everyone)', event=event)
+        leave_demo(added, event)
+    added = len(added)
     flash(f'Added {added} {"person" if added == 1 else "people"} to {event.name}.' if added
           else 'Everyone is already in this event.', 'success' if added else 'info')
     return redirect(url_for('admin.manage_event', event_id=event_id, step='people'))
@@ -484,6 +488,7 @@ def remove_participant(event_id, user_id):
 def delete_event(event_id):
     event = ChristmasEvent.query.get_or_404(event_id)
     User.query.filter_by(main_event_id=event.id).update({'main_event_id': None})
+    AppSettings.query.filter_by(demo_event_id=event.id).update({'demo_event_id': None})
     label = f'{event.name} {event.year}'
     db.session.delete(event)
     db.session.commit()
@@ -566,6 +571,17 @@ def settings():
         if app_settings.signup_question_enabled and not (app_settings.signup_question and app_settings.accepted_answers()):
             app_settings.signup_question_enabled = False
             flash('The family question needs both a question and an answer - it has been left off.', 'warning')
+        demo_choice = request.form.get('demo_event', '')
+        if demo_choice == 'new':
+            practice = ChristmasEvent(name='Practice Event', year=datetime.now().year, secret_santa_enabled=False,
+                                      description='A place to try things out - nothing here is real.')
+            db.session.add(practice)
+            db.session.flush()
+            app_settings.demo_event_id = practice.id
+            log_activity('event_created', 'Practice Event', event=practice)
+        else:
+            chosen = db.session.get(ChristmasEvent, int(demo_choice)) if demo_choice.isdigit() else None
+            app_settings.demo_event_id = chosen.id if chosen else None
         app_settings.reminders_enabled = request.form.get('reminders_enabled') == 'on'
         app_settings.empty_list_reminder_days = max(0, request.form.get('empty_list_reminder_days', 21, type=int) or 0)
         app_settings.countdown_reminder_days = max(0, request.form.get('countdown_reminder_days', 7, type=int) or 0)
@@ -585,6 +601,7 @@ def settings():
     }
     push_users = db.session.query(PushSubscription.user_id).distinct().count()
     return render_template('admin/settings.html', settings=app_settings, mail_config=mail_config,
+                           events=ChristmasEvent.query.order_by(ChristmasEvent.year.desc(), ChristmasEvent.name).all(),
                            restore_enabled=True,
                            backups=backup_status(), human_size=human_size,
                            push_devices=PushSubscription.query.count(), push_users=push_users,

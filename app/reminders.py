@@ -55,6 +55,8 @@ def send_reminders(today=None):
     events = ChristmasEvent.query.filter(ChristmasEvent.is_active.is_(True),
                                          ChristmasEvent.event_date.isnot(None)).all()
     for event in events:
+        if event.id == settings.demo_event_id:   # practice event: nothing real to remind about
+            continue
         days = (event.event_date - today).days
         if days < 0:
             continue

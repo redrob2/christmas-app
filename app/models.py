@@ -184,6 +184,9 @@ class EventParticipant(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     joined_at = db.Column(db.DateTime, default=datetime.utcnow)
     participates_in_secret_santa = db.Column(db.Boolean, default=True)  # Can opt out of Secret Santa
+    # Put in the practice event automatically at sign-up; taken out again once
+    # an admin adds them to a real event
+    demo_auto = db.Column(db.Boolean, default=False, nullable=False)
 
     # Relationships
     event = db.relationship('ChristmasEvent', back_populates='participants')
@@ -408,6 +411,8 @@ class AppSettings(db.Model):
     signup_question_enabled = db.Column(db.Boolean, default=False, nullable=False)
     signup_question = db.Column(db.String(200))
     signup_answers = db.Column(db.String(300))  # accepted answers, comma-separated
+    # Practice event: new sign-ups join it to try things out until they're added to a real event
+    demo_event_id = db.Column(db.Integer)
 
     def signup_question_active(self):
         return bool(self.allow_signups and self.signup_question_enabled and self.signup_question

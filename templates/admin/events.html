@@ -33,6 +33,9 @@
                         <i data-lucide="users" class="text-success"></i>
                         {{ event.participants.count() }} Participants
                     </span>
+                    {% if event.id == demo_id %}
+                    <span class="badge badge-christmas-gold" title="New sign-ups start here (Admin → Settings)"><i data-lucide="gamepad-2"></i> Practice event</span>
+                    {% endif %}
                     {% if event.is_active %}
                     <span class="badge badge-christmas-green">Active</span>
                     {% else %}

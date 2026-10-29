@@ -52,6 +52,7 @@ ACTIVITY_LABELS = {
     'reminder_sent': ('send', 'Reminder sent'), 'reminder_scheduled': ('alarm-clock', 'Reminder scheduled'),
     'reminder_cancelled': ('alarm-clock-off', 'Reminder cancelled'),
     'signup_auto': ('badge-check', 'Joined (family question)'),
+    'demo_joined': ('gamepad-2', 'Joined the practice event'), 'demo_left': ('log-out', 'Left the practice event'),
     'signup_approved': ('user-check', 'Account approved'), 'signup_declined': ('user-x', 'Account declined'),
 }
 
@@ -141,6 +142,7 @@ def approve_signup(user):
     user.is_approved = True
     db.session.commit()
     log_activity('signup_approved', user.name)
+    join_demo(user)
     try:
         msg = Message(f"🎄 You're in! Welcome to {get_site_name()}", recipients=[user.email])
         msg.html = render_template('emails/signup_approved.html', user=user,
@@ -150,6 +152,64 @@ def approve_signup(user):
     except Exception as e:
         print(f"Email error: {e}", flush=True)
         return False
+
+
+# ---------- Practice event for new sign-ups ----------
+
+def demo_event():
+    """The practice event chosen in Admin -> Settings, if any"""
+    from app.models import AppSettings
+    settings = AppSettings.query.first()
+    if settings and settings.demo_event_id:
+        return db.session.get(ChristmasEvent, settings.demo_event_id)
+    return None
+
+
+def join_demo(user):
+    """Put a newly approved sign-up in the practice event, so they can try things out
+    while they wait to be added to a real one. Not if they're already in an event."""
+    event = demo_event()
+    if not event or user.is_managed or not user.is_approved:
+        return False
+    if EventParticipant.query.filter_by(user_id=user.id).first():
+        return False
+    db.session.add(EventParticipant(event_id=event.id, user_id=user.id, demo_auto=True,
+                                    participates_in_secret_santa=event.secret_santa_enabled))
+    if not WishList.query.filter_by(event_id=event.id, owner_id=user.id).first():
+        db.session.add(WishList(event_id=event.id, owner_id=user.id))
+    db.session.commit()
+    log_activity('demo_joined', user.name, event=event, actor=user)
+    return True
+
+
+def leave_demo(user_ids, joined_event):
+    """Someone was added to a real event: take them out of the practice event, if they
+    were put there automatically (people an admin added to it by hand stay)."""
+    event = demo_event()
+    if not event or joined_event.id == event.id or not user_ids:
+        return 0
+    left = EventParticipant.query.filter(EventParticipant.event_id == event.id,
+                                         EventParticipant.demo_auto.is_(True),
+                                         EventParticipant.user_id.in_(list(user_ids))).all()
+    for participant in left:
+        user = participant.user
+        in_draw = SecretSantaAssignment.query.filter_by(event_id=event.id).filter(db.or_(
+            SecretSantaAssignment.giver_id == user.id, SecretSantaAssignment.receiver_id == user.id)).all()
+        if in_draw:
+            try:
+                remove_from_draw(event, user)
+            except DrawError:
+                for assignment in in_draw:
+                    _drop(assignment)
+        wishlist = WishList.query.filter_by(event_id=event.id, owner_id=user.id).first()
+        if wishlist:
+            db.session.delete(wishlist)
+        if user.main_event_id == event.id:
+            user.main_event_id = None
+        db.session.delete(participant)
+        db.session.commit()
+        log_activity('demo_left', f'{user.name} (added to {joined_event.name})', event=event)
+    return len(left)
 
 
 # ---------- Who's ready ----------
@@ -396,6 +456,7 @@ def copy_event(event, hide_old=False):
         event.is_active = False
     db.session.commit()
     log_activity('event_copied', f'{new.name} {new.year} created from {event.name} {event.year}', event=new)
+    leave_demo([p.user_id for p in EventParticipant.query.filter_by(event_id=new.id)], new)
     return new
 
 

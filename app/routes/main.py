@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from flask_login import login_required, current_user
 from app import db
-from app.models import Announcement, EventParticipant, User, WishList, WishListItem
+from app.models import AppSettings, Announcement, EventParticipant, User, WishList, WishListItem
 from app.event_data import (user_events, current_event, soonest_event, santa_info, shopping_stats,
                             family_summary)
 from app.routes.secretsanta import mark_seen, unread_message_count
@@ -60,7 +60,13 @@ def dashboard():
                           family=family_summary(event, current_user, pick_id),
                           managed_lists=managed_lists,
                           announcements=announcements,
-                          is_main_choice=current_user.main_event_id == event.id)
+                          is_main_choice=current_user.main_event_id == event.id,
+                          is_demo=bool(participation and event.id == demo_event_id()))
+
+
+def demo_event_id():
+    settings = AppSettings.query.first()
+    return settings.demo_event_id if settings else None
 
 
 @main_bp.route('/choose-event')

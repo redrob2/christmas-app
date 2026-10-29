@@ -59,6 +59,20 @@
                         </div>
                     </div>
 
+                    <div class="mb-3">
+                        <label for="demo_event" class="form-label"><i data-lucide="gamepad-2"></i> Practice event for new sign-ups</label>
+                        <select class="form-select" id="demo_event" name="demo_event" style="max-width: 360px;">
+                            <option value="">Off - new people join nothing until you add them</option>
+                            {% for e in events %}
+                            <option value="{{ e.id }}" {% if e.id == settings.demo_event_id %}selected{% endif %}>{{ e.name }}{% if e.year|string not in e.name %} {{ e.year }}{% endif %}</option>
+                            {% endfor %}
+                            <option value="new">+ Make a new "Practice Event"</option>
+                        </select>
+                        <small class="text-muted">People who sign up (once approved, or straight away with the family question) start in this event so they can
+                            play around. As soon as you add them to any other event, they're taken out of it, along with their practice list.
+                            People you add to it yourself stay. It gets no automatic reminder emails.</small>
+                    </div>
+
                     <hr class="my-4">
 
                     <h5 class="mb-3"><i data-lucide="bell" class="text-warning"></i> Reminder Emails</h5>

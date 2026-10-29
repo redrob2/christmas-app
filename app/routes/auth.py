@@ -247,8 +247,9 @@ def signup():
             user.set_password(password)
             db.session.add(user)
             db.session.commit()
-            from app.admin_tools import notify_admins_signup
+            from app.admin_tools import join_demo, notify_admins_signup
             notify_admins_signup(user)
+            join_demo(user)
         return render_template('auth/signup_sent.html', approved=family)
 
     return render_template('auth/signup.html', form=form, family_question=family_question())
