@@ -13,7 +13,7 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
     <div class="page-header mb-0">
-        <p class="eyebrow">Admin · Event setup</p>
+        <p class="eyebrow">{{ 'Admin' if current_user.is_admin else 'Coordinator' }} · Event setup</p>
         <h1 class="festive">{{ event.name }}{% if event.year|string not in event.name %} {{ event.year }}{% endif %}</h1>
         <p>
             {% if event.is_active %}<span class="badge badge-christmas-green">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive - hidden from Home</span>{% endif %}
@@ -24,7 +24,7 @@
         <a href="{{ url_for('admin.event_status', event_id=event.id) }}" class="btn btn-christmas"><i data-lucide="list-checks"></i> Who's ready</a>
         <a href="{{ url_for('admin.event_reminders', event_id=event.id) }}" class="btn btn-outline-light"><i data-lucide="alarm-clock"></i> Reminders</a>
         <a href="{{ url_for('events.view_event', event_id=event.id) }}" class="btn btn-outline-light">View as family</a>
-        <a href="{{ url_for('admin.events_list') }}" class="btn btn-outline-light">All events</a>
+        {% if current_user.is_admin %}<a href="{{ url_for('admin.events_list') }}" class="btn btn-outline-light">All events</a>{% endif %}
     </div>
 </div>
 
@@ -98,6 +98,7 @@
                         <button type="submit" class="btn btn-quiet">{{ 'Deactivate' if event.is_active else 'Activate' }}</button>
                     </form>
                 </div>
+                {% if current_user.is_admin %}
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
                     <div>
                         <h3 class="h6 mb-0">Delete event</h3>
@@ -110,11 +111,13 @@
                             <i data-lucide="trash-2"></i> Delete Event</button>
                     </form>
                 </div>
+                {% endif %}
 
             {% elif step == 'people' %}
                 <div>
                     <h2 class="h4 mb-1">Who's in this event</h2>
-                    <p class="text-muted mb-0">Everyone added gets their own wishlist for it.</p>
+                    <p class="text-muted mb-0">Everyone added gets their own wishlist for it.{% if current_user.is_admin %}
+                        <i data-lucide="user-cog"></i> makes someone a <strong>coordinator</strong>: they can run this event's setup, people, Secret Santa, reminders and announcements.{% endif %}</p>
                 </div>
                 {% set available = all_users | rejectattr('id', 'in', participant_ids) | list %}
                 {% if available %}
@@ -130,7 +133,7 @@
                         </div>
                         <button type="submit" class="btn btn-christmas-green"><i data-lucide="plus"></i> Add to Event</button>
                     </form>
-                    {% if available | length > 1 %}
+                    {% if available | length > 1 and current_user.is_admin %}
                     <form action="{{ url_for('admin.add_all_participants', event_id=event.id) }}" method="POST">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-quiet"><i data-lucide="users"></i> Add Everyone ({{ available | length }})</button>
@@ -138,9 +141,32 @@
                     {% endif %}
                 </div>
                 {% else %}
-                <p class="mb-0 text-muted"><i data-lucide="circle-check" class="text-success"></i> Everyone is already in this event.
-                    <a href="{{ url_for('admin.add_user') }}">Add a new person</a></p>
+                <p class="mb-0 text-muted"><i data-lucide="circle-check" class="text-success"></i> Everyone with an account is already in this event.</p>
                 {% endif %}
+
+                <details class="invite-box" {% if not available %}open{% endif %}>
+                    <summary><i data-lucide="mail-plus"></i> Invite someone new</summary>
+                    <form action="{{ url_for('admin.invite_to_event', event_id=event.id) }}" method="POST" class="christmas-form d-flex flex-wrap gap-2 align-items-end mt-2">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="flex-grow-1">
+                            <label for="invite-name" class="form-label small mb-1">Name</label>
+                            <input type="text" class="form-control" id="invite-name" name="name" maxlength="100" required>
+                        </div>
+                        <div class="flex-grow-1">
+                            <label for="invite-email" class="form-label small mb-1">Email</label>
+                            <input type="email" class="form-control" id="invite-email" name="email" maxlength="120" required>
+                        </div>
+                        {% if current_user.is_admin %}
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="coordinator" id="invite-coord">
+                            <label class="form-check-label small" for="invite-coord">Make them a coordinator</label>
+                        </div>
+                        {% endif %}
+                        <button type="submit" class="btn btn-christmas"><i data-lucide="send"></i> Invite</button>
+                    </form>
+                    <small class="text-muted d-block mt-1">They get an account, a wishlist in {{ event.name }}, and an email with a temporary password.
+                        {% if current_user.is_admin %}For someone without a login (like a young child), use <a href="{{ url_for('admin.add_user', event_id=event.id) }}">Add a person</a>.{% endif %}</small>
+                </details>
 
                 {% if participants %}
                 <div class="person-grid">
@@ -149,7 +175,16 @@
                     <div class="toggle-tile on">
                         {{ avatar(p.user, 36) }}
                         <span class="grow"><span class="d-block">{{ p.user.name }}{% if p.user.is_managed %} <small class="text-muted fw-normal">(no login)</small>{% endif %}</span>
-                            <small class="text-muted fw-normal">{{ wl.items.count() if wl else 0 }} items</small></span>
+                            <small class="text-muted fw-normal">{{ wl.items.count() if wl else 0 }} items{% if p.is_coordinator %} · <span class="coord-tag">Coordinator</span>{% endif %}</small></span>
+                        {% if current_user.is_admin and not p.user.is_managed %}
+                        <form action="{{ url_for('admin.toggle_coordinator', event_id=event.id, user_id=p.user_id) }}" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-link {{ 'text-warning' if p.is_coordinator else 'text-muted' }}"
+                                    title="{{ 'Stop coordinating' if p.is_coordinator else 'Make coordinator' }}"
+                                    aria-label="{{ ('Stop ' ~ p.user.name ~ ' coordinating') if p.is_coordinator else ('Make ' ~ p.user.name ~ ' a coordinator') }}"
+                                    aria-pressed="{{ 'true' if p.is_coordinator else 'false' }}"><i data-lucide="user-cog"></i></button>
+                        </form>
+                        {% endif %}
                         {% if not event.secret_santa_locked() or p.user_id not in assignments|map(attribute='giver_id')|list %}
                         <form action="{{ url_for('admin.remove_participant', event_id=event.id, user_id=p.user_id) }}" method="POST">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -163,7 +198,7 @@
                 {% else %}
                 <div class="empty-state">
                     <i data-lucide="users"></i>
-                    <p>Nobody's in this event yet. Use <strong>Add Everyone</strong> to invite the whole family at once.</p>
+                    <p>Nobody's in this event yet.{% if current_user.is_admin %} Use <strong>Add Everyone</strong> to invite the whole family at once.{% endif %}</p>
                 </div>
                 {% endif %}
                 <div class="setup-footer">
@@ -363,7 +398,7 @@
                 {% endif %}
                 <div class="setup-footer">
                     <a href="{{ url_for('admin.manage_event', event_id=event.id, step='santa') }}" class="btn btn-quiet">Back</a>
-                    <a href="{{ url_for('admin.events_list') }}" class="btn btn-quiet">Done</a>
+                    <a href="{{ url_for('admin.events_list') if current_user.is_admin else url_for('admin.event_status', event_id=event.id) }}" class="btn btn-quiet">Done</a>
                 </div>
             {% endif %}
             </div>

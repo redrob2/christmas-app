@@ -5,7 +5,7 @@ import random
 from app import db, mail
 from app.models import (ChristmasEvent, EventParticipant, SecretSantaAssignment,
                        ExclusionPair, User, WishList, SantaMessage)
-from app.utils import admin_required, get_external_url
+from app.utils import can_manage_event, event_manager_required, get_external_url
 from app.push import send_push
 from flask_mail import Message
 
@@ -22,7 +22,7 @@ def require_secret_santa_enabled():
     if event is None or event.secret_santa_enabled:
         return None
     flash(f'Secret Santa is turned off for {event.name}.', 'info')
-    if current_user.is_authenticated and current_user.is_admin:
+    if can_manage_event(current_user, event_id):
         return redirect(url_for('admin.manage_event', event_id=event_id, step='santa'))
     return redirect(url_for('events.view_event', event_id=event_id))
 
@@ -115,7 +115,7 @@ def generate_derangement(participants, exclusions, previous_assignments, max_att
 
 @secretsanta_bp.route('/event/<int:event_id>')
 @login_required
-@admin_required
+@event_manager_required
 def manage_secret_santa(event_id):
     """Secret Santa steps of the guided event setup (who's in, pairs, draw & send)"""
     from app.routes.admin import render_event_setup
@@ -126,7 +126,7 @@ def manage_secret_santa(event_id):
 
 @secretsanta_bp.route('/event/<int:event_id>/toggle-participation/<int:participant_id>', methods=['POST'])
 @login_required
-@admin_required
+@event_manager_required
 def toggle_participation(event_id, participant_id):
     event = ChristmasEvent.query.get_or_404(event_id)
     participant = EventParticipant.query.get_or_404(participant_id)
@@ -156,7 +156,7 @@ def toggle_participation(event_id, participant_id):
 
 @secretsanta_bp.route('/event/<int:event_id>/add-exclusion', methods=['POST'])
 @login_required
-@admin_required
+@event_manager_required
 def add_exclusion(event_id):
     event = ChristmasEvent.query.get_or_404(event_id)
 
@@ -207,7 +207,7 @@ def add_exclusion(event_id):
 
 @secretsanta_bp.route('/event/<int:event_id>/remove-exclusion/<int:exclusion_id>', methods=['POST'])
 @login_required
-@admin_required
+@event_manager_required
 def remove_exclusion(event_id, exclusion_id):
     event = ChristmasEvent.query.get_or_404(event_id)
     exclusion = ExclusionPair.query.get_or_404(exclusion_id)
@@ -232,7 +232,7 @@ def remove_exclusion(event_id, exclusion_id):
 
 @secretsanta_bp.route('/event/<int:event_id>/generate', methods=['POST'])
 @login_required
-@admin_required
+@event_manager_required
 def generate_secret_santa(event_id):
     event = ChristmasEvent.query.get_or_404(event_id)
 
@@ -287,7 +287,7 @@ def generate_secret_santa(event_id):
 
 @secretsanta_bp.route('/event/<int:event_id>/send', methods=['POST'])
 @login_required
-@admin_required
+@event_manager_required
 def send_notifications(event_id):
     event = ChristmasEvent.query.get_or_404(event_id)
 
@@ -338,7 +338,7 @@ def send_notifications(event_id):
 
 @secretsanta_bp.route('/event/<int:event_id>/resend/<int:assignment_id>', methods=['POST'])
 @login_required
-@admin_required
+@event_manager_required
 def resend_notification(event_id, assignment_id):
     event = ChristmasEvent.query.get_or_404(event_id)
     assignment = SecretSantaAssignment.query.get_or_404(assignment_id)

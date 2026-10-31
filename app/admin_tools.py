@@ -52,6 +52,7 @@ ACTIVITY_LABELS = {
     'reminder_sent': ('send', 'Reminder sent'), 'reminder_scheduled': ('alarm-clock', 'Reminder scheduled'),
     'reminder_cancelled': ('alarm-clock-off', 'Reminder cancelled'),
     'signup_auto': ('badge-check', 'Joined (family question)'),
+    'coordinator_set': ('user-cog', 'Coordinator changed'),
     'demo_joined': ('gamepad-2', 'Joined the practice event'), 'demo_left': ('log-out', 'Left the practice event'),
     'signup_approved': ('user-check', 'Account approved'), 'signup_declined': ('user-x', 'Account declined'),
 }
@@ -152,6 +153,41 @@ def approve_signup(user):
     except Exception as e:
         print(f"Email error: {e}", flush=True)
         return False
+
+
+# ---------- Adding people to events ----------
+
+def add_to_event(event, user, coordinator=False):
+    """Put someone in an event with their own wishlist. Returns True if they were newly added."""
+    participant = EventParticipant.query.filter_by(event_id=event.id, user_id=user.id).first()
+    added = participant is None
+    if added:
+        participant = EventParticipant(event_id=event.id, user_id=user.id,
+                                       participates_in_secret_santa=not user.is_managed)
+        db.session.add(participant)
+    if coordinator and not user.is_managed:
+        participant.is_coordinator = True
+    if not WishList.query.filter_by(event_id=event.id, owner_id=user.id).first():
+        db.session.add(WishList(event_id=event.id, owner_id=user.id))
+    db.session.commit()
+    if added:
+        log_activity('participant_added', user.name, event=event)
+        leave_demo([user.id], event)
+    return added
+
+
+def invite_person(name, email, events=(), is_admin=False, coordinator_of=()):
+    """New account, added to the given events, then the welcome email (which names them).
+    Returns (user, sent, temp_password)."""
+    user = User(email=email, name=name, is_admin=is_admin)
+    user.set_password(generate_temp_password(32))  # replaced by send_welcome() below
+    db.session.add(user)
+    db.session.commit()
+    log_activity('user_added', name + (f' (invited to {", ".join(e.name for e in events)})' if events else ''))
+    for event in events:
+        add_to_event(event, user, coordinator=event in coordinator_of)
+    sent, temp_password = send_welcome(user)
+    return user, sent, temp_password
 
 
 # ---------- Practice event for new sign-ups ----------

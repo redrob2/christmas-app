@@ -21,6 +21,8 @@ self-hosted in one Docker container, made for Unraid.
   - "online now"
 - **Accounts:**
   - Admins add people, or people request an account. An optional family question lets relatives skip the approval wait.
+  - Invite someone new straight into an event from its **People** step: they get an account, a wishlist there, and an email with a temporary password.
+  - **Event coordinators:** an admin can make anyone in an event its coordinator. A coordinator runs that one event: its details, people and invites, Secret Santa (on/off, budget, pairs, the draw), reminders, announcements, nudges and the list download. They find it under **Events I run** in their menu. Site admins still control every event, account and setting.
   - An optional practice event gives new people somewhere to play around. They leave it automatically once they're added to a real event.
   - Lists for people without a login, like young kids, are looked after by a parent.
 - **Light and dark themes**, with gentle snow.

@@ -7,8 +7,10 @@ from app import db, mail
 from app.models import (User, ChristmasEvent, EventParticipant, ExclusionPair, AppSettings, WishList,
                         ItemPurchase, SecretSantaAssignment, PasswordResetToken, GiftContribution,
                         SantaMessage, ReminderLog, PushSubscription, Announcement, ActivityLog, CustomReminder)
-from app.utils import admin_required, get_external_url, get_site_name, parse_money
+from app.utils import (admin_required, can_manage_event, event_manager_required, get_external_url, get_site_name,
+                       parse_money)
 from app.admin_tools import (ACTIVITY_LABELS, DrawError, add_to_draw, approve_signup, approved_users, demo_event, leave_demo,
+                              add_to_event, invite_person,
                              backup_status, copy_event,
                              export_lists_csv, generate_temp_password, human_size, log_activity,
                              managed_placeholder_email, nudge_empty_lists, post_announcement, readiness,
@@ -91,6 +93,9 @@ def decline_user(user_id):
 @admin_required
 def add_user():
     login_users = approved_users().filter(User.is_managed.is_(False)).all()
+    events = ChristmasEvent.query.filter_by(is_active=True).order_by(ChristmasEvent.year.desc(), ChristmasEvent.name).all()
+    chosen = [e for e in events if str(e.id) in request.form.getlist('event_ids')]
+    preselect = request.args.get('event_id', type=int)
     if request.method == 'POST':
         email = request.form.get('email', '').lower().strip()
         name = request.form.get('name', '').strip()
@@ -100,13 +105,13 @@ def add_user():
 
         if not name or (not managed and not email):
             flash('Name and email are required.' if not managed else 'Name is required.', 'danger')
-            return render_template('admin/add_user.html', login_users=login_users)
+            return render_template('admin/add_user.html', login_users=login_users, events=events, preselect=preselect)
         if managed and (manager is None or manager.is_managed):
             flash('Choose who looks after their list.', 'danger')
-            return render_template('admin/add_user.html', login_users=login_users)
+            return render_template('admin/add_user.html', login_users=login_users, events=events, preselect=preselect)
         if not managed and User.query.filter_by(email=email).first():
             flash('A user with this email already exists.', 'danger')
-            return render_template('admin/add_user.html', login_users=login_users)
+            return render_template('admin/add_user.html', login_users=login_users, events=events, preselect=preselect)
 
         if managed:
             # No login: placeholder email and an unusable password; their manager edits the list
@@ -116,22 +121,23 @@ def add_user():
             db.session.add(user)
             db.session.commit()
             log_activity('user_added', f'{name} (list looked after by {manager.name})')
-            flash(f'{name} added - {manager.name} can now look after their wishlist.', 'success')
+            for event in chosen:
+                add_to_event(event, user)
+            flash(f'{name} added - {manager.name} can now look after their wishlist.'
+                  + (f' In: {", ".join(e.name for e in chosen)}.' if chosen else ''), 'success')
             return redirect(url_for('admin.users_list'))
 
-        user = User(email=email, name=name, is_admin=is_admin)
-        user.set_password(generate_temp_password(32))  # replaced by send_welcome() below
-        db.session.add(user)
-        db.session.commit()
-        log_activity('user_added', name)
-        sent, temp_password = send_welcome(user)
+        coordinates = [e for e in chosen if f'coord_{e.id}' in request.form]
+        user, sent, temp_password = invite_person(name, email, events=chosen, is_admin=is_admin,
+                                                  coordinator_of=coordinates)
+        in_events = f' Added to {", ".join(e.name for e in chosen)}.' if chosen else ''
         if sent:
-            flash(f'User {name} created successfully! Welcome email sent.', 'success')
+            flash(f'User {name} created successfully! Welcome email sent.{in_events}', 'success')
         else:
             flash(f'User created but email failed to send. Temporary password: {temp_password}', 'warning')
         return redirect(url_for('admin.users_list'))
 
-    return render_template('admin/add_user.html', login_users=login_users)
+    return render_template('admin/add_user.html', login_users=login_users, events=events, preselect=preselect)
 
 
 @admin_bp.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
@@ -290,7 +296,11 @@ def reset_user_password(user_id):
 def events_list():
     events = ChristmasEvent.query.order_by(ChristmasEvent.year.desc(), ChristmasEvent.name).all()
     demo = demo_event()
-    return render_template('admin/events.html', events=events, demo_id=demo.id if demo else None)
+    coordinators = {}
+    for p in EventParticipant.query.filter_by(is_coordinator=True):
+        coordinators.setdefault(p.event_id, []).append(p.user.name)
+    return render_template('admin/events.html', events=events, demo_id=demo.id if demo else None,
+                           coordinators=coordinators)
 
 
 @admin_bp.route('/events/<int:event_id>/copy', methods=['POST'])
@@ -352,7 +362,7 @@ def add_event():
 
 @admin_bp.route('/events/<int:event_id>')
 @login_required
-@admin_required
+@event_manager_required
 def manage_event(event_id):
     """Guided event setup: Details -> People -> Secret Santa -> Draw & send"""
     event = ChristmasEvent.query.get_or_404(event_id)
@@ -388,7 +398,7 @@ def render_event_setup(event, step):
 
 @admin_bp.route('/events/<int:event_id>/add-participant', methods=['POST'])
 @login_required
-@admin_required
+@event_manager_required
 def add_participant(event_id):
     event = ChristmasEvent.query.get_or_404(event_id)
     user_id = request.form.get('user_id', type=int)
@@ -408,19 +418,65 @@ def add_participant(event_id):
         flash('User is already a participant.', 'warning')
         return redirect(url_for('admin.manage_event', event_id=event_id, step='people'))
 
-    participant = EventParticipant(event_id=event_id, user_id=user_id,
-                                   participates_in_secret_santa=not user.is_managed)
-    db.session.add(participant)
+    if not user.is_approved:
+        flash(f'{user.name} is still waiting for account approval.', 'warning')
+        return redirect(url_for('admin.manage_event', event_id=event_id, step='people'))
+    in_demo = demo_event() is not None and EventParticipant.query.filter_by(
+        event_id=demo_event().id, user_id=user.id, demo_auto=True).first() is not None
+    add_to_event(event, user)
 
-    # Create wishlist for user in this event
-    wishlist = WishList(event_id=event_id, owner_id=user_id)
-    db.session.add(wishlist)
+    flash(f'{user.name} added to the event!' + (' They have left the practice event.'
+                                                 if in_demo and event.id != demo_event().id else ''), 'success')
+    return redirect(url_for('admin.manage_event', event_id=event_id, step='people'))
 
-    db.session.commit()
-    log_activity('participant_added', user.name, event=event)
-    left = leave_demo([user.id], event)
 
-    flash(f'{user.name} added to the event!' + (' They have left the practice event.' if left else ''), 'success')
+@admin_bp.route('/events/<int:event_id>/invite', methods=['POST'])
+@login_required
+@event_manager_required
+def invite_to_event(event_id):
+    """Someone new: make their account, put them in this event, email their sign-in details.
+    Someone who already has an account is just added."""
+    event = ChristmasEvent.query.get_or_404(event_id)
+    back = redirect(url_for('admin.manage_event', event_id=event_id, step='people'))
+    name = request.form.get('name', '').strip()[:100]
+    email = request.form.get('email', '').lower().strip()[:120]
+    coordinator = current_user.is_admin and request.form.get('coordinator') == 'on'
+    if not name or not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+        flash('Enter their name and a valid email address.', 'danger')
+        return back
+    existing = User.query.filter_by(email=email).first()
+    if existing:
+        if not existing.is_approved:
+            flash(f'{existing.name} has asked for an account - an admin needs to approve it on the People page first.', 'warning')
+        elif add_to_event(event, existing, coordinator=coordinator):
+            flash(f'{existing.name} already had an account, so they were just added to {event.name}.', 'success')
+        else:
+            flash(f'{existing.name} is already in {event.name}.', 'info')
+        return back
+    user, sent, temp_password = invite_person(name, email, events=[event],
+                                              coordinator_of=[event] if coordinator else [])
+    if sent:
+        flash(f'{name} is in {event.name} - their invite email is on its way.', 'success')
+    else:
+        flash(f"{name} is in {event.name}, but the email didn't send. Give them their temporary password: {temp_password}", 'warning')
+    return back
+
+
+@admin_bp.route('/events/<int:event_id>/coordinator/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def toggle_coordinator(event_id, user_id):
+    """Site admins choose who runs an event"""
+    event = ChristmasEvent.query.get_or_404(event_id)
+    participant = EventParticipant.query.filter_by(event_id=event_id, user_id=user_id).first_or_404()
+    if participant.user.is_managed:
+        flash(f"{participant.user.name} doesn't have a login, so they can't coordinate.", 'danger')
+    else:
+        participant.is_coordinator = not participant.is_coordinator
+        db.session.commit()
+        verb = 'now coordinates' if participant.is_coordinator else 'no longer coordinates'
+        log_activity('coordinator_set', f'{participant.user.name} {verb} {event.name}', event=event)
+        flash(f'{participant.user.name} {verb} {event.name}.', 'success')
     return redirect(url_for('admin.manage_event', event_id=event_id, step='people'))
 
 
@@ -452,7 +508,7 @@ def add_all_participants(event_id):
 
 @admin_bp.route('/events/<int:event_id>/remove-participant/<int:user_id>', methods=['POST'])
 @login_required
-@admin_required
+@event_manager_required
 def remove_participant(event_id, user_id):
     event = ChristmasEvent.query.get_or_404(event_id)
 
@@ -499,7 +555,7 @@ def delete_event(event_id):
 
 @admin_bp.route('/events/<int:event_id>/toggle-active', methods=['POST'])
 @login_required
-@admin_required
+@event_manager_required
 def toggle_event_active(event_id):
     event = ChristmasEvent.query.get_or_404(event_id)
     event.is_active = not event.is_active
@@ -512,7 +568,7 @@ def toggle_event_active(event_id):
 
 @admin_bp.route('/events/<int:event_id>/update', methods=['POST'])
 @login_required
-@admin_required
+@event_manager_required
 def update_event(event_id):
     event = ChristmasEvent.query.get_or_404(event_id)
 
@@ -612,7 +668,7 @@ def settings():
 
 @admin_bp.route('/events/<int:event_id>/status')
 @login_required
-@admin_required
+@event_manager_required
 def event_status(event_id):
     event = ChristmasEvent.query.get_or_404(event_id)
     rows = readiness(event, current_user)
@@ -623,7 +679,7 @@ def event_status(event_id):
 
 @admin_bp.route('/events/<int:event_id>/nudge', methods=['POST'])
 @login_required
-@admin_required
+@event_manager_required
 def nudge(event_id):
     event = ChristmasEvent.query.get_or_404(event_id)
     summary = readiness_summary(readiness(event, current_user), event)
@@ -644,7 +700,7 @@ def nudge(event_id):
 
 @admin_bp.route('/events/<int:event_id>/announce', methods=['POST'])
 @login_required
-@admin_required
+@event_manager_required
 def announce(event_id):
     event = ChristmasEvent.query.get_or_404(event_id)
     body = request.form.get('body', '').strip()[:1000]
@@ -658,10 +714,12 @@ def announce(event_id):
 
 @admin_bp.route('/announcements/<int:announcement_id>/delete', methods=['POST'])
 @login_required
-@admin_required
 def delete_announcement(announcement_id):
     note = Announcement.query.get_or_404(announcement_id)
     event_id = note.event_id
+    if not can_manage_event(current_user, event_id):
+        flash("Only admins and this event's coordinators can do that.", 'danger')
+        return redirect(url_for('main.dashboard'))
     db.session.delete(note)
     db.session.commit()
     flash('Announcement removed.', 'success')
@@ -670,7 +728,7 @@ def delete_announcement(announcement_id):
 
 @admin_bp.route('/events/<int:event_id>/export.csv')
 @login_required
-@admin_required
+@event_manager_required
 def export_lists(event_id):
     event = ChristmasEvent.query.get_or_404(event_id)
     filename = re.sub(r'[^A-Za-z0-9]+', '-', f'{event.name}-{event.year}-wishlists').strip('-') + '.csv'
@@ -684,7 +742,7 @@ def export_lists(event_id):
 
 @admin_bp.route('/events/<int:event_id>/draw/remove/<int:user_id>', methods=['POST'])
 @login_required
-@admin_required
+@event_manager_required
 def draw_remove(event_id, user_id):
     event = ChristmasEvent.query.get_or_404(event_id)
     user = User.query.get_or_404(user_id)
@@ -700,7 +758,7 @@ def draw_remove(event_id, user_id):
 
 @admin_bp.route('/events/<int:event_id>/draw/add/<int:user_id>', methods=['POST'])
 @login_required
-@admin_required
+@event_manager_required
 def draw_add(event_id, user_id):
     event = ChristmasEvent.query.get_or_404(event_id)
     user = User.query.get_or_404(user_id)
@@ -805,7 +863,7 @@ def save_upload_to_temp(upload):
 
 @admin_bp.route('/events/<int:event_id>/reminders', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@event_manager_required
 def event_reminders(event_id):
     from datetime import timezone
     from app.admin_tools import PLACEHOLDERS, reminder_recipients, send_custom_reminder
@@ -876,10 +934,12 @@ def event_reminders(event_id):
 
 @admin_bp.route('/reminders/<int:reminder_id>/<action>', methods=['POST'])
 @login_required
-@admin_required
 def reminder_action(reminder_id, action):
     from app.admin_tools import send_custom_reminder
     reminder = CustomReminder.query.get_or_404(reminder_id)
+    if not can_manage_event(current_user, reminder.event_id):
+        flash("Only admins and this event's coordinators can do that.", 'danger')
+        return redirect(url_for('main.dashboard'))
     back = redirect(url_for('admin.event_reminders', event_id=reminder.event_id))
     if reminder.status != 'scheduled':
         flash('That reminder has already been sent or cancelled.', 'info')

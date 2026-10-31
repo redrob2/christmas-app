@@ -106,6 +106,7 @@ def create_app(config_name='default'):
         from app.utils import get_app_name, get_external_url, get_site_name
         from app.push import public_key
         unread = pending = 0
+        running = []
         # (emails rendered by the reminder scheduler have no request/user)
         if has_request_context() and current_user.is_authenticated:
             from app.routes.secretsanta import unread_message_count
@@ -113,9 +114,12 @@ def create_app(config_name='default'):
             if current_user.is_admin:
                 from app.models import User
                 pending = User.query.filter_by(is_approved=False).count()
+            else:
+                from app.utils import coordinated_events
+                running = coordinated_events(current_user)
         return dict(external_url=get_external_url, site_name=get_site_name(), app_name=get_app_name(),
                     unread_santa_messages=unread, pending_signups=pending, push_public_key=public_key,
-                    signups_open=signups_open,
+                    signups_open=signups_open, events_i_run=running,
                     app_version=app.config['APP_VERSION'])
 
     from flask_wtf.csrf import CSRFError

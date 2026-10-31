@@ -14,6 +14,9 @@
             {% if event.event_date %}{{ event.event_date.strftime('%A, %B ') }}{{ event.event_date.day }}{% endif %}
             {% if event.event_date and event.description %} · {% endif %}{{ event.description or '' }}
         </p>
+        {% if runs_event %}
+        <a href="{{ url_for('admin.event_status', event_id=event.id) }}" class="chip mt-2 me-1"><i data-lucide="clipboard-list"></i> Run this event</a>
+        {% endif %}
         {% if other_events %}
         <div class="dropdown mt-2">
             <button class="chip dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">

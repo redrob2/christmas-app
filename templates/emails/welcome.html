@@ -19,6 +19,12 @@
                 You've been added to our {{ site_name }} gift exchange app! 
                 This is where we coordinate wishlists and Secret Santa assignments.
             </p>
+            {% set invited_to = user.event_participations.all() %}
+            {% if invited_to %}
+            <p style="color: #555; line-height: 1.6;">
+                You're in <strong>{{ invited_to|map(attribute='event.name')|join(', ') }}</strong> - sign in to start your wishlist.
+            </p>
+            {% endif %}
             
             <div style="background: #fff; border-radius: 15px; padding: 20px; margin: 25px 0; border-left: 4px solid #228b22;">
                 <h3 style="margin-top: 0; color: #228b22;">🔐 Your Login Details</h3>

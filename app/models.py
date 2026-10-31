@@ -187,6 +187,9 @@ class EventParticipant(db.Model):
     # Put in the practice event automatically at sign-up; taken out again once
     # an admin adds them to a real event
     demo_auto = db.Column(db.Boolean, default=False, nullable=False)
+    # Runs this event: its setup, people, Secret Santa, reminders and announcements
+    # (site admins can do all of that for every event)
+    is_coordinator = db.Column(db.Boolean, default=False, nullable=False)
 
     # Relationships
     event = db.relationship('ChristmasEvent', back_populates='participants')

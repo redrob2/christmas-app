@@ -33,6 +33,9 @@
                         <i data-lucide="users" class="text-success"></i>
                         {{ event.participants.count() }} Participants
                     </span>
+                    {% if coordinators.get(event.id) %}
+                    <span class="badge badge-christmas" title="Coordinators"><i data-lucide="user-cog"></i> {{ coordinators[event.id]|join(', ') }}</span>
+                    {% endif %}
                     {% if event.id == demo_id %}
                     <span class="badge badge-christmas-gold" title="New sign-ups start here (Admin → Settings)"><i data-lucide="gamepad-2"></i> Practice event</span>
                     {% endif %}

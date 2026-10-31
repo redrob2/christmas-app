@@ -56,6 +56,27 @@
                         They will be required to change it on first login. You'll get a notification when they first sign in.
                     </div>
                     </div>
+                    {% if events %}
+                    <fieldset class="mb-3">
+                        <legend class="form-label fs-6">Add to events</legend>
+                        <div class="d-flex flex-column gap-1">
+                        {% for e in events %}
+                        <div class="d-flex flex-wrap align-items-center gap-3">
+                            <div class="form-check m-0">
+                                <input class="form-check-input" type="checkbox" name="event_ids" value="{{ e.id }}" id="ev-{{ e.id }}"
+                                       {% if e.id == preselect %}checked{% endif %}>
+                                <label class="form-check-label" for="ev-{{ e.id }}">{{ e.name }}{% if e.year|string not in e.name %} {{ e.year }}{% endif %}</label>
+                            </div>
+                            <div class="form-check m-0 small coord-check">
+                                <input class="form-check-input" type="checkbox" name="coord_{{ e.id }}" id="coord-{{ e.id }}">
+                                <label class="form-check-label text-muted" for="coord-{{ e.id }}">coordinator</label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        </div>
+                        <small class="text-muted">They get a wishlist in each one{% if events %} and their welcome email says which{% endif %}. A coordinator runs that event's setup, people, Secret Santa, reminders and announcements.</small>
+                    </fieldset>
+                    {% endif %}
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-christmas">
                             <i data-lucide="save"></i> Create User

@@ -61,7 +61,8 @@ def dashboard():
                           managed_lists=managed_lists,
                           announcements=announcements,
                           is_main_choice=current_user.main_event_id == event.id,
-                          is_demo=bool(participation and event.id == demo_event_id()))
+                          is_demo=bool(participation and event.id == demo_event_id()),
+                          runs_event=bool(participation and participation.is_coordinator))
 
 
 def demo_event_id():

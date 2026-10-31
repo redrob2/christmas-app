@@ -6,7 +6,7 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
     <div class="page-header mb-0">
-        <p class="eyebrow">Admin · Who's ready</p>
+        <p class="eyebrow">{{ 'Admin' if current_user.is_admin else 'Coordinator' }} · Who's ready</p>
         <h1 class="festive">{{ event.name }}{% if event.year|string not in event.name %} {{ event.year }}{% endif %}</h1>
         <p>{% if event.event_date %}{{ event.event_date.strftime('%A, %B ') }}{{ event.event_date.day }}{% set d = event.days_until() %}{% if d is not none and d >= 0 %} · {{ d }} day{{ 's' if d != 1 }} to go{% endif %}{% endif %}
            {% if event.lists_lock_date %} · lists lock {{ event.lists_lock_date.strftime('%b ') }}{{ event.lists_lock_date.day }}{% endif %}</p>
@@ -14,7 +14,7 @@
     <div class="d-flex flex-wrap gap-2">
         <a href="{{ url_for('admin.export_lists', event_id=event.id) }}" class="btn btn-outline-light"><i data-lucide="download"></i> Download lists</a>
         <a href="{{ url_for('admin.event_reminders', event_id=event.id) }}" class="btn btn-christmas"><i data-lucide="alarm-clock"></i> Reminders</a>
-        <a href="{{ url_for('admin.activity', event_id=event.id) }}" class="btn btn-outline-light"><i data-lucide="history"></i> Activity</a>
+        {% if current_user.is_admin %}<a href="{{ url_for('admin.activity', event_id=event.id) }}" class="btn btn-outline-light"><i data-lucide="history"></i> Activity</a>{% endif %}
         <a href="{{ url_for('admin.manage_event', event_id=event.id) }}" class="btn btn-outline-light"><i data-lucide="settings"></i> Setup</a>
     </div>
 </div>
@@ -130,10 +130,12 @@
                             {% elif r.user.is_online or r.own %}<span class="online-dot" aria-hidden="true"></span><strong>Online now</strong>
                             {% elif seen %}<span class="ok-dot"></span>{{ seen|seen_ago }}
                             {% else %}<span class="badge bg-warning text-dark">Not yet</span>
+                                {% if current_user.is_admin %}
                                 <form action="{{ url_for('admin.resend_invite', user_id=r.user.id) }}" method="POST" class="d-inline">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-link btn-sm p-0 ms-1" data-confirm="Send {{ r.user.name }} a new welcome email (with a fresh temporary password)?">Resend invite</button>
                                 </form>
+                                {% endif %}
                             {% endif %}
                         </td>
                         <td data-label="List">

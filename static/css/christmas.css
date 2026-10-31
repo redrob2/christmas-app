@@ -1001,3 +1001,9 @@ a:hover { color: var(--bs-link-hover-color); }
 .pick-person input { accent-color: var(--pine); width: 1.1em; height: 1.1em; }
 .reminder-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(31, 36, 51, 0.1); }
 .reminder-row:last-child { border-bottom: 0; padding-bottom: 0; }
+
+/* Event setup: invite someone new, coordinator tag */
+.invite-box { border: 1px dashed var(--border, rgba(127,127,127,.4)); border-radius: 12px; padding: .75rem 1rem; }
+.invite-box > summary { cursor: pointer; font-weight: 600; }
+.invite-box > summary .lucide { width: 18px; height: 18px; vertical-align: -3px; }
+.coord-tag { color: var(--gold, #d4a017); font-weight: 700; }

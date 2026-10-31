@@ -19,6 +19,35 @@ def admin_required(f):
     return decorated_function
 
 
+def can_manage_event(user, event_id):
+    """Site admins manage every event; coordinators manage the events they run"""
+    if not user.is_authenticated or not event_id:
+        return False
+    if user.is_admin:
+        return True
+    from app.models import EventParticipant
+    return EventParticipant.query.filter_by(event_id=event_id, user_id=user.id, is_coordinator=True).first() is not None
+
+
+def coordinated_events(user):
+    """Events this person coordinates (newest first)"""
+    from app.models import ChristmasEvent, EventParticipant
+    return (ChristmasEvent.query.join(EventParticipant, EventParticipant.event_id == ChristmasEvent.id)
+            .filter(EventParticipant.user_id == user.id, EventParticipant.is_coordinator.is_(True))
+            .order_by(ChristmasEvent.year.desc(), ChristmasEvent.name).all())
+
+
+def event_manager_required(f):
+    """For pages about one event (the route takes event_id): admins and that event's coordinators"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not can_manage_event(current_user, kwargs.get('event_id')):
+            flash("Only admins and this event's coordinators can do that.", 'danger')
+            return redirect(url_for('main.dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 def get_external_url(endpoint, **values):
     """Generate an absolute URL for links in emails"""
     server_name = current_app.config.get('SERVER_NAME_FOR_EMAILS', 'localhost:8123')

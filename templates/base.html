@@ -54,6 +54,13 @@
                         <li><a class="dropdown-item" href="{{ url_for('profile.view_profile') }}"><i data-lucide="user"></i> My profile</a></li>
                         <li><a class="dropdown-item" href="{{ url_for('profile.view_profile') }}#notifications"><i data-lucide="bell"></i> Notifications</a></li>
                         <li><a class="dropdown-item" href="{{ url_for('auth.change_password') }}"><i data-lucide="key-round"></i> Change password</a></li>
+                        {% if events_i_run %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><h6 class="dropdown-header">Events I run</h6></li>
+                        {% for e in events_i_run %}
+                        <li><a class="dropdown-item" href="{{ url_for('admin.event_status', event_id=e.id) }}"><i data-lucide="clipboard-list"></i> {{ e.name }}</a></li>
+                        {% endfor %}
+                        {% endif %}
                         {% if current_user.is_admin %}
                         <li><hr class="dropdown-divider"></li>
                         <li><h6 class="dropdown-header">Admin</h6></li>
