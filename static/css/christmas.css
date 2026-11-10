@@ -1007,3 +1007,9 @@ a:hover { color: var(--bs-link-hover-color); }
 .invite-box > summary { cursor: pointer; font-weight: 600; }
 .invite-box > summary .lucide { width: 18px; height: 18px; vertical-align: -3px; }
 .coord-tag { color: var(--gold, #d4a017); font-weight: 700; }
+
+/* My profile: Install the app */
+.install-panel ol { padding-left: 1.25rem; }
+.install-panel li + li { margin-top: .35rem; }
+.app-banner-later { display: block; opacity: .8; margin-top: 2px; }
+.app-banner-later a { color: inherit; text-decoration: underline; }

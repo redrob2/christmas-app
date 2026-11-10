@@ -53,6 +53,7 @@
                     <ul class="dropdown-menu dropdown-menu-end dropdown-menu-christmas">
                         <li><a class="dropdown-item" href="{{ url_for('profile.view_profile') }}"><i data-lucide="user"></i> My profile</a></li>
                         <li><a class="dropdown-item" href="{{ url_for('profile.view_profile') }}#notifications"><i data-lucide="bell"></i> Notifications</a></li>
+                        <li data-hide-installed><a class="dropdown-item" href="{{ url_for('profile.view_profile') }}#install"><i data-lucide="smartphone"></i> Install the app</a></li>
                         <li><a class="dropdown-item" href="{{ url_for('auth.change_password') }}"><i data-lucide="key-round"></i> Change password</a></li>
                         {% if events_i_run %}
                         <li><hr class="dropdown-divider"></li>
@@ -126,6 +127,7 @@
                 (on newer iPhones it's in the <strong>•••</strong> menu), then <strong>Add to Home Screen</strong>.
                 Open it from there to turn on notifications.
             </span>
+            <small class="app-banner-later">Not now? It's always in <a href="{{ url_for('profile.view_profile') }}#install">My profile</a>.</small>
         </div>
         <div class="app-banner-actions">
             <button type="button" class="btn btn-sm btn-christmas-gold" data-install-go hidden>Install</button>

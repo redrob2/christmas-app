@@ -112,6 +112,47 @@
 </div>
 
 {% if not viewing_other %}
+<div class="christmas-card mb-4" id="install" data-install-panel>
+    <div class="card-header gold-header">
+        <i data-lucide="smartphone"></i> Install the app
+    </div>
+    <div class="card-body install-panel">
+        <p class="mb-2">Put {{ app_name }} on your home screen: it opens full screen like any other app, and on iPhone it's needed for notifications.</p>
+        <div data-install-state="installed" hidden>
+            <p class="mb-0"><i data-lucide="circle-check" class="text-success"></i> <strong>You're using the installed app</strong> on this device.</p>
+        </div>
+        <div data-install-state="done" hidden>
+            <p class="mb-0"><i data-lucide="circle-check" class="text-success"></i> <strong>Installed!</strong> Open {{ app_name }} from your home screen from now on.</p>
+        </div>
+        <div data-install-state="prompt" hidden>
+            <button type="button" class="btn btn-christmas-gold" data-install-now><i data-lucide="download"></i> Install the app</button>
+        </div>
+        <div data-install-state="ios" hidden>
+            <ol class="mb-0">
+                <li>Open this site in <strong>Safari</strong>.</li>
+                <li>Tap <span class="kbd-icon" aria-label="Share"><i data-lucide="share"></i></span> <strong>Share</strong> (on newer iPhones it's in the <strong>•••</strong> menu).</li>
+                <li>Scroll down and tap <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li>
+                <li>Open {{ app_name }} from your home screen, then come back here to turn on notifications.</li>
+            </ol>
+        </div>
+        <div data-install-state="android" hidden>
+            <ol class="mb-0">
+                <li>Tap the <strong>⋮</strong> menu at the top right of Chrome.</li>
+                <li>Tap <strong>Install app</strong> (or <strong>Add to Home screen</strong>, then <strong>Install</strong>).</li>
+            </ol>
+            <small class="text-muted d-block mt-2">Not there? Open this page in Chrome.</small>
+        </div>
+        <div data-install-state="computer" hidden>
+            <p class="mb-0">On a computer, Chrome and Edge show an install icon at the right end of the address bar.
+                It's most handy on your phone, though: sign in there and come back to this page.</p>
+        </div>
+        <div data-install-state="insecure" hidden>
+            <p class="mb-0">Phones can only install the app from the secure address.
+                Open <a href="{{ external_url('profile.view_profile') }}#install">{{ external_url('profile.view_profile') }}</a> and install it from there.</p>
+        </div>
+    </div>
+</div>
+
 <div class="christmas-card mb-4" id="notifications" data-push-panel>
     <div class="card-header green-header">
         <i data-lucide="bell"></i> Notifications on this device

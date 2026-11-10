@@ -411,6 +411,23 @@ function registerServiceWorker() {
     navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch(() => {});
 }
 
+// Android / Chrome / Edge hand over an install prompt that our own buttons can show
+// (the tip below and "Install the app" in My profile). Caught here, before either is set up.
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    installPrompt = e;
+    document.dispatchEvent(new Event('install-ready'));
+});
+
+async function promptInstall() {
+    const prompt = installPrompt;
+    if (!prompt) return null;
+    installPrompt = null;   // each prompt can only be shown once
+    prompt.prompt();
+    return (await prompt.userChoice).outcome;
+}
+
 // ---------- One-time "put it on your home screen" tip ----------
 function setupInstallTip() {
     const tip = document.getElementById('install-tip');
@@ -429,21 +446,42 @@ function setupInstallTip() {
         setTimeout(() => { tip.hidden = false; }, 1500);
         return;
     }
-    // Android / Chrome / Edge offer an install prompt we can trigger from a button
-    window.addEventListener('beforeinstallprompt', e => {
+    // Android / Chrome / Edge: an Install button
+    const offer = () => {
         // On computers the browser shows its own install icon; only nudge on phones and tablets
-        if (!window.matchMedia('(pointer: coarse)').matches) return;
-        e.preventDefault();
-        const deferred = e;
+        if (!installPrompt || !window.matchMedia('(pointer: coarse)').matches) return;
         tip.querySelector('[data-install-android]').hidden = false;
         const go = tip.querySelector('[data-install-go]');
         go.hidden = false;
-        go.onclick = async () => {
-            deferred.prompt();
-            const choice = await deferred.userChoice;
-            hide(choice.outcome === 'accepted' ? 3650 : 30);
-        };
+        go.onclick = async () => hide(await promptInstall() === 'accepted' ? 3650 : 30);
         tip.hidden = false;
+    };
+    offer();
+    document.addEventListener('install-ready', offer);
+}
+
+// ---------- "Install the app" in My profile (any time, even after closing the tip) ----------
+function setupInstallPanel() {
+    if (isStandalone()) document.querySelectorAll('[data-hide-installed]').forEach(el => { el.hidden = true; });
+    const panel = document.querySelector('[data-install-panel]');
+    if (!panel) return;
+    const show = state => panel.querySelectorAll('[data-install-state]').forEach(el => {
+        el.hidden = el.dataset.installState !== state;
+    });
+    const pick = () => {
+        if (isStandalone()) return show('installed');
+        if (!window.isSecureContext) return show('insecure');
+        if (installPrompt) return show('prompt');
+        if (isIOS()) return show('ios');
+        if (/Android/i.test(navigator.userAgent)) return show('android');
+        return show('computer');
+    };
+    pick();
+    document.addEventListener('install-ready', pick);
+    window.addEventListener('appinstalled', () => show('done'));
+    panel.querySelector('[data-install-now]').addEventListener('click', async () => {
+        if (await promptInstall() === 'accepted') show('done');
+        else pick();   // said no: show the steps from the browser menu instead
     });
 }
 
@@ -682,6 +720,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!document.querySelector('meta[name="push-key"]')) return;  // signed-out pages
     setupInstallTip();
+    setupInstallPanel();
     watchForUpdates();
     updateAppBadge();
     setupPushPanel();
