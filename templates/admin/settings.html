@@ -23,6 +23,17 @@
                         <small class="text-muted">Shown in the menu bar, page titles and emails.</small>
                     </div>
                     <div class="mb-3">
+                        <label for="public_url" class="form-label">Site address</label>
+                        <input type="text" class="form-control" id="public_url" name="public_url" maxlength="200"
+                               inputmode="url" autocomplete="off" spellcheck="false"
+                               placeholder="{{ env_public_url or 'https://wishlist.example.com' }}" value="{{ settings.public_url or '' }}">
+                        <small class="text-muted d-block">The address your family uses. Every link in emails and notifications starts with it.
+                            {% if not settings.public_url %}Leave empty to use the container's Public URL{% if env_public_url %} ({{ env_public_url }}){% endif %}.{% endif %}</small>
+                        <small class="d-block mt-1 {{ 'text-danger' if link_problem else 'text-success' }}">
+                            <i data-lucide="{{ 'link-2-off' if link_problem else 'link-2' }}"></i>
+                            Links now go to <strong>{{ link_base }}</strong>{% if link_problem %}, which {{ link_problem }}{% endif %}.</small>
+                    </div>
+                    <div class="mb-3">
                         <label for="app_name" class="form-label">Phone app name</label>
                         <input type="text" class="form-control" id="app_name" name="app_name" maxlength="30"
                                value="{{ settings.app_name or 'Wishlist' }}" style="max-width: 260px;">

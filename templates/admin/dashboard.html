@@ -15,6 +15,12 @@
     </div>
 </div>
 
+{% if link_problem %}
+<div class="alert alert-warning christmas-alert"><i data-lucide="link-2-off"></i>
+    Links in emails and notifications point to <strong>{{ link_base }}</strong>, which {{ link_problem }}.
+    <a href="{{ url_for('admin.settings') }}#public_url" class="fw-bold">Set the site address</a></div>
+{% endif %}
+
 {% if pending %}
 <div class="alert alert-info christmas-alert"><i data-lucide="user-round-search"></i>
     {{ pending }} account request{{ 's' if pending != 1 }} waiting for approval. <a href="{{ url_for('admin.users_list') }}#pending" class="fw-bold">Review</a></div>

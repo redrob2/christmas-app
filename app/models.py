@@ -414,6 +414,9 @@ class AppSettings(db.Model):
     signup_question_enabled = db.Column(db.Boolean, default=False, nullable=False)
     signup_question = db.Column(db.String(200))
     signup_answers = db.Column(db.String(300))  # accepted answers, comma-separated
+    # Address used for links in emails and notifications (e.g. https://wishlist.example.com).
+    # Empty = the container's PUBLIC_URL.
+    public_url = db.Column(db.String(200))
     # Practice event: new sign-ups join it to try things out until they're added to a real event
     demo_event_id = db.Column(db.Integer)
 

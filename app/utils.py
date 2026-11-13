@@ -48,10 +48,56 @@ def event_manager_required(f):
     return decorated_function
 
 
+def clean_public_url(value):
+    """'christmas.example.com/' -> 'https://christmas.example.com'; None if it isn't an address"""
+    value = (value or '').strip().rstrip('/')
+    if not value:
+        return None
+    if '://' not in value:
+        value = 'https://' + value
+    scheme, rest = value.split('://', 1)
+    host = rest.split('/')[0]
+    if scheme.lower() not in ('http', 'https') or not re.match(r'^[A-Za-z0-9.\-\[\]:]+$', host):
+        return None
+    return f'{scheme.lower()}://{host.lower()}'
+
+
+def public_base():
+    """(scheme, host) for links in emails and notifications: the address set in
+    Admin -> Settings, otherwise the container's PUBLIC_URL"""
+    from app.models import AppSettings
+    try:
+        settings = AppSettings.query.first()
+        url = settings.public_url if settings else None
+    except Exception:   # (table not created yet)
+        url = None
+    if url and '://' in url:
+        scheme, host = url.split('://', 1)
+        return scheme, host
+    return (current_app.config.get('PREFERRED_URL_SCHEME', 'https'),
+            current_app.config.get('SERVER_NAME_FOR_EMAILS', 'localhost:8123'))
+
+
+def public_address_problem(base=None):
+    """Why links in emails wouldn't work for the family, or None if the address looks public"""
+    import ipaddress
+    scheme, host = base or public_base()
+    name = host[1:host.index(']')] if host.startswith('[') else host.split(':')[0]   # drop the port
+    if name == 'localhost' or name.endswith(('.localhost', '.local', '.lan', '.home', '.internal')) or '.' not in name:
+        return 'only works on your own network'
+    try:
+        ipaddress.ip_address(name)
+        return 'is a network (IP) address, not your public address'
+    except ValueError:
+        pass
+    if scheme != 'https':
+        return "isn't https, so phones can't install the app or get notifications from it"
+    return None
+
+
 def get_external_url(endpoint, **values):
     """Generate an absolute URL for links in emails"""
-    server_name = current_app.config.get('SERVER_NAME_FOR_EMAILS', 'localhost:8123')
-    scheme = current_app.config.get('PREFERRED_URL_SCHEME', 'https')
+    scheme, server_name = public_base()
     with current_app.test_request_context():
         path = url_for(endpoint, **values)
     return f"{scheme}://{server_name}{path}"

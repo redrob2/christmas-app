@@ -7,8 +7,8 @@ from app import db, mail
 from app.models import (User, ChristmasEvent, EventParticipant, ExclusionPair, AppSettings, WishList,
                         ItemPurchase, SecretSantaAssignment, PasswordResetToken, GiftContribution,
                         SantaMessage, ReminderLog, PushSubscription, Announcement, ActivityLog, CustomReminder)
-from app.utils import (admin_required, can_manage_event, event_manager_required, get_external_url, get_site_name,
-                       parse_money)
+from app.utils import (admin_required, can_manage_event, clean_public_url, event_manager_required, get_external_url,
+                       get_site_name, parse_money, public_address_problem, public_base)
 from app.admin_tools import (ACTIVITY_LABELS, DrawError, add_to_draw, approve_signup, approved_users, demo_event, leave_demo,
                               add_to_event, invite_person,
                              backup_status, copy_event,
@@ -42,6 +42,7 @@ def admin_dashboard():
                           recent=ActivityLog.query.order_by(ActivityLog.created_at.desc()).limit(8).all(),
                           activity_labels=ACTIVITY_LABELS,
                           backups=backup_status(),
+                          link_base='://'.join(public_base()), link_problem=public_address_problem(),
                           pending=User.query.filter_by(is_approved=False).count())
 
 
@@ -620,6 +621,13 @@ def settings():
     if request.method == 'POST':
         app_settings.site_name = request.form.get('site_name', '').strip() or 'Family Christmas'
         app_settings.app_name = request.form.get('app_name', '').strip()[:30] or 'Wishlist'
+        typed = request.form.get('public_url', '').strip()
+        address = clean_public_url(typed)
+        if typed and not address:
+            flash(f'"{typed}" doesn\'t look like a web address - the site address was left as it was.', 'warning')
+        elif address != app_settings.public_url:
+            app_settings.public_url = address
+            log_activity('settings', f'Site address for email links: {address or "from PUBLIC_URL"}')
         app_settings.allow_signups = request.form.get('allow_signups') == 'on'
         app_settings.signup_question = request.form.get('signup_question', '').strip()[:200] or None
         app_settings.signup_answers = request.form.get('signup_answers', '').strip()[:300] or None
@@ -656,7 +664,10 @@ def settings():
         'password_set': bool(current_app.config.get('MAIL_PASSWORD')),
     }
     push_users = db.session.query(PushSubscription.user_id).distinct().count()
+    scheme, host = public_base()
     return render_template('admin/settings.html', settings=app_settings, mail_config=mail_config,
+                           link_base=f'{scheme}://{host}', link_problem=public_address_problem((scheme, host)),
+                           env_public_url=os.environ.get('PUBLIC_URL') or '',
                            events=ChristmasEvent.query.order_by(ChristmasEvent.year.desc(), ChristmasEvent.name).all(),
                            restore_enabled=True,
                            backups=backup_status(), human_size=human_size,
