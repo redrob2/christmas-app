@@ -53,7 +53,7 @@ docker compose logs wishlist     # shows the setup code on first start
 
 | Variable | What it does | Default |
 |---|---|---|
-| `PUBLIC_URL` | Address people use, e.g. `https://wishlist.example.com`. Used for links in emails and notifications. | `http://localhost:8123` |
+| `PUBLIC_URL` | Address people use, e.g. `https://wishlist.example.com`. Used for links in emails and notifications. You can also set it in **Admin → Settings → Site address**, which takes priority; the admin pages warn if links would point at localhost, a network address or plain http. | `http://localhost:8123` |
 | `TRUST_PROXY` | `true` when people come in through a reverse proxy, so sign-in limits see each visitor's real address. Leave `false` for direct connections: the proxy header can be faked. | `false` |
 | `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USE_TLS` | Outgoing email server | `smtp.gmail.com`, `587`, `true` |
 | `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_DEFAULT_SENDER` | Email login and From address | — |
