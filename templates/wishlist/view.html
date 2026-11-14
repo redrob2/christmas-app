@@ -96,7 +96,13 @@
         <div class="gift-media">
             {% if item.image %}
             {% set image_url = url_for('profile.uploaded_file', filename=item.image) %}
+            {% if item.url and not is_owner %}
+            {# Someone else's list: the picture opens the store page, like the name does #}
+            <a href="{{ item.url }}" class="gift-media-link" target="_blank" rel="noopener noreferrer"
+               aria-label="Open {{ item.name }} in a new tab"><img src="{{ image_url }}" alt="{{ item.name }}" loading="lazy"></a>
+            {% else %}
             <img src="{{ image_url }}" alt="{{ item.name }}" data-lightbox="{{ image_url }}" data-caption="{{ item.name }}" loading="lazy">
+            {% endif %}
             {% else %}
             <div class="no-photo"><i data-lucide="gift"></i>No photo</div>
             {% endif %}
