@@ -1,7 +1,7 @@
 {#
   Shared add/edit item form. `item` is None when adding.
   Pasting a product link fills in the fields (static/js/item_form.js); everything
-  except the name is optional.
+  except the name is optional - and the link, which is required unless "No link" is ticked.
 #}
 {% from "_macros.html" import image_dropzone %}
 {% set editing = item is defined and item is not none %}
@@ -19,6 +19,7 @@
         <div class="input-group">
             <input type="url" class="form-control" id="url" name="url" inputmode="url" autocomplete="off"
                    placeholder="https://www.target.com/p/..." value="{{ item.url if editing and item.url else '' }}"
+                   {% if not (editing and item.no_link and not item.url) %}required{% endif %}
                    {% if not editing %}autofocus{% endif %}>
             <button type="button" class="btn btn-outline-secondary d-none" id="paste-link" title="Paste from clipboard">
                 <i data-lucide="clipboard-paste"></i> Paste
@@ -30,6 +31,12 @@
             {% endif %}
         </div>
         <div id="link-status" class="link-status small" role="status" aria-live="polite"></div>
+        <div class="form-check mt-2 mb-0">
+            <input class="form-check-input" type="checkbox" id="no_link" name="no_link" value="1"
+                   {% if editing and item.no_link and not item.url %}checked{% endif %}>
+            <label class="form-check-label small" for="no_link">No link for this one
+                <span class="text-muted">(homemade, from a local shop, an experience...)</span></label>
+        </div>
     </div>
 
     {% if not editing %}

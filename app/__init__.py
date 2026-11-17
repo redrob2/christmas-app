@@ -324,6 +324,22 @@ def _sqlite_pragmas(dbapi_connection, connection_record):
         cursor.close()
 
 
+# When an update adds one of these columns, fill it in for the rows already there
+# (once: the column only gets added once). Also used when restoring an older backup.
+BACKFILLS = {
+    # Items saved before a link was required: they were fine without one
+    ('wishlist_items', 'no_link'): ("UPDATE wishlist_items SET no_link = :yes WHERE url IS NULL OR url = ''",
+                                    {'yes': True}),
+}
+
+
+def run_backfill(conn, table_name, column_name):
+    fill = BACKFILLS.get((table_name, column_name))
+    if fill:
+        conn.execute(text(fill[0]), fill[1])
+        print(f"[upgrade] filled in {table_name}.{column_name} for existing rows", flush=True)
+
+
 def add_missing_columns():
     """Bring existing tables up to date with the models.
 
@@ -355,6 +371,7 @@ def add_missing_columns():
                         sql += ' NOT NULL'
                 conn.execute(text(sql))
                 print(f"[upgrade] added column {table.name}.{column.name}", flush=True)
+                run_backfill(conn, table.name, column.name)
 
 
 def wait_for_database(timeout=90):

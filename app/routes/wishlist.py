@@ -106,8 +106,12 @@ def read_item_form(item):
     item.notes = request.form.get('notes', '').strip() or None
     item.price = parse_money(request.form.get('price'))
     item.priority = request.form.get('priority', 0, type=int) or 0
+    item.no_link = not item.url and request.form.get('no_link') == '1'
     if request.form.get('url', '').strip() and not item.url:
         flash('That link was ignored - only http(s) links are allowed.', 'warning')
+
+
+NEED_LINK = 'Add the link for this item, or tick "No link for this one".'
 
 
 @wishlist_bp.route('/<int:wishlist_id>')
@@ -191,6 +195,9 @@ def add_item(wishlist_id):
 
         if not item.name:
             flash('Item name is required.', 'danger')
+            return render_template('wishlist/add_item.html', wishlist=wishlist)
+        if not item.url and not item.no_link:
+            flash(NEED_LINK, 'danger')
             return render_template('wishlist/add_item.html', wishlist=wishlist)
 
         # An uploaded photo wins; otherwise use the picture found from the link
@@ -283,6 +290,9 @@ def edit_item(item_id):
         if not item.name:
             item.name = old_name
             flash('Item name is required.', 'danger')
+            return render_template('wishlist/edit_item.html', item=item, wishlist=wishlist)
+        if not item.url and not item.no_link:
+            flash(NEED_LINK, 'danger')
             return render_template('wishlist/edit_item.html', item=item, wishlist=wishlist)
 
         # A new upload replaces the old image; "remove" only applies when no new one was chosen
@@ -383,7 +393,7 @@ def copy_items(wishlist_id):
         if old.purchase is not None or old.name.strip().lower() in existing:
             continue
         db.session.add(WishListItem(
-            wishlist_id=wishlist.id, name=old.name, url=old.url, color=old.color, size=old.size,
+            wishlist_id=wishlist.id, name=old.name, url=old.url, no_link=old.no_link, color=old.color, size=old.size,
             notes=old.notes, price=old.price, priority=old.priority,
             image=copy_uploaded_file(old.image)))
         copied += 1

@@ -62,6 +62,26 @@
         if (busy) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
 
+    // A link is required unless "No link for this one" is ticked
+    const noLink = document.getElementById('no_link');
+    if (noLink) {
+        const syncLinkRule = () => {
+            urlInput.required = !noLink.checked;
+            urlInput.setCustomValidity('');
+        };
+        noLink.addEventListener('change', syncLinkRule);
+        urlInput.addEventListener('input', () => {
+            if (urlInput.value.trim()) noLink.checked = false;
+            syncLinkRule();
+        });
+        urlInput.addEventListener('invalid', () => {
+            if (!urlInput.value.trim()) urlInput.setCustomValidity('Paste the link for this item, or tick "No link for this one".');
+        });
+        // (the link may have been filled in by Paste or a share since the last try)
+        form.querySelectorAll('button[type="submit"]').forEach(b => b.addEventListener('click', syncLinkRule));
+        syncLinkRule();
+    }
+
     function fill(id, value, force) {
         const el = fields[id];
         if (!el || value == null || value === '') return false;

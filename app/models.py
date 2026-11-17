@@ -230,6 +230,8 @@ class WishListItem(db.Model):
     wishlist_id = db.Column(db.Integer, db.ForeignKey('wishlists.id'), nullable=False)
     name = db.Column(db.String(200), nullable=False)
     url = db.Column(db.String(500))
+    # The owner ticked "No link for this one" (homemade, a local shop, an experience...)
+    no_link = db.Column(db.Boolean, default=False, nullable=False)
     color = db.Column(db.String(50))
     size = db.Column(db.String(50))
     notes = db.Column(db.Text)

@@ -195,7 +195,7 @@ def read_backup(path, passphrase):
 def restore_backup(path, passphrase):
     """Replaces ALL data (database and photos) with the backup's. Returns a summary.
     The database part is one transaction: if anything fails, nothing changes."""
-    from app import add_missing_columns, models  # noqa: F401
+    from app import add_missing_columns, models, run_backfill  # noqa: F401
     work, zf, manifest = read_backup(path, passphrase)
     try:
         names = set(zf.namelist())
@@ -232,6 +232,11 @@ def restore_backup(path, passphrase):
                 if got != len(rows):
                     raise BackupError(f'{table.name}: the backup has {len(rows)} rows but {got} were restored.')
                 restored[table.name] = got
+                # A backup from an older version: fill in columns it didn't have yet
+                present = set().union(*(row.keys() for row in rows)) if rows else set(columns)
+                for name in columns:
+                    if name not in present:
+                        run_backfill(conn, table.name, name)
             if engine.dialect.name == 'postgresql':
                 for table in tables:
                     pk = table.primary_key.columns.values()[0] if table.primary_key else None
