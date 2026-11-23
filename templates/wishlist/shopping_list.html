@@ -97,7 +97,7 @@
                     <span class="small text-muted">Chipping in{% if ct.amount %} {{ ct.amount|money }}{% endif %}</span>
                 </div>
                 <span class="small ms-auto {% if ct.item.purchase %}text-muted{% else %}text-danger fw-bold{% endif %}">
-                    {% if ct.item.purchase %}Bought by {{ 'you' if ct.item.purchase.purchaser_id == current_user.id else ct.item.purchase.purchaser.name }}{% else %}Not bought yet{% endif %}
+                    {% if ct.item.purchase %}{{ 'Bought by you' if ct.item.purchase.purchaser_id == current_user.id else 'Already bought' }}{% else %}Not bought yet{% endif %}
                 </span>
             </div>
             {% endfor %}

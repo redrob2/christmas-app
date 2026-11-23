@@ -112,7 +112,7 @@
             {% if item.price %}<span class="gift-price">{{ item.price|money }}</span>{% endif %}
             {% if item_data.purchased and not is_owner %}
             <div class="gift-overlay"><span><i data-lucide="check"></i>
-                Bought by {{ 'you' if item_data.purchased_by_me else item_data.purchased_by.name }}{% if item_data.purchased_by_me and item.purchase.status != 'purchased' %} · {{ item.purchase.status|capitalize }}{% endif %}</span></div>
+                {{ 'Bought by you' if item_data.purchased_by_me else 'Already bought' }}{% if item_data.purchased_by_me and item.purchase.status != 'purchased' %} · {{ item.purchase.status|capitalize }}{% endif %}</span></div>
             {% endif %}
         </div>
 

@@ -134,14 +134,13 @@ def view_wishlist(wishlist_id):
         item_data = {
             'item': item,
             'purchased': item.purchase is not None,
-            'purchased_by': None,
             'purchased_by_me': False,
             'contributions': [],
             'my_contribution': None,
         }
         if not is_owner:
             if item.purchase:
-                item_data['purchased_by'] = item.purchase.purchaser
+                # Who bought it stays anonymous: only the buyer is told it was them
                 item_data['purchased_by_me'] = item.purchase.purchaser_id == current_user.id
             item_data['contributions'] = item.contributions
             item_data['my_contribution'] = next(
